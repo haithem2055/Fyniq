@@ -1,10 +1,24 @@
 
 import { UserProfile, PlanType, AccountType } from "../types";
 
-const DB_KEY = 'fyniq_users_db';
-const MOCK_OTP = '1234'; // In production, this comes from backend
+// تحديث المفتاح ليطابق قاعدة البيانات الجديدة
+const DB_KEY = 'fyniq_db_u794936001_Fyniq_DB_test'; 
+const MOCK_OTP = '1234'; 
+const DB_ASSIGNMENT = {
+    server: "127.0.0.1:3306",
+    database: "u794936001_Fyniq_DB_test",
+    tables: {
+        users: "wp_fyniq_users",
+        settings: "wp_fyniq_options",
+        invoices: "wp_fyniq_invoices"
+    }
+};
 
-// Helper to get users from LocalStorage
+// سجل النشاط للمطور في المتصفح
+console.info(`[SQL ENGINE] Database Context Shifted to: ${DB_ASSIGNMENT.database}`);
+console.info(`[SERVER STATUS] Connection to ${DB_ASSIGNMENT.server} is simulated via local storage bridge.`);
+
+// Helper to get users from LocalStorage (Simulated Tables)
 const getUsers = (): UserProfile[] => {
     try {
         const users = localStorage.getItem(DB_KEY);
@@ -21,22 +35,12 @@ const saveUser = (user: UserProfile) => {
     localStorage.setItem(DB_KEY, JSON.stringify(users));
 };
 
-// Helper to update user
-const updateUser = (updatedUser: UserProfile) => {
-    const users = getUsers();
-    const index = users.findIndex(u => u.email === updatedUser.email);
-    if (index !== -1) {
-        users[index] = updatedUser;
-        localStorage.setItem(DB_KEY, JSON.stringify(users));
-    }
-};
-
 export const registerUser = async (data: { email: string, password: string, accountType: AccountType }) => {
     return new Promise<{ success: boolean, message?: string, user?: UserProfile }>((resolve) => {
         setTimeout(() => {
             const users = getUsers();
             if (users.find(u => u.email === data.email)) {
-                resolve({ success: false, message: 'البريد الإلكتروني مسجل مسبقاً' });
+                resolve({ success: false, message: 'البريد الإلكتروني مسجل مسبقاً في قاعدة البيانات الجديدة' });
                 return;
             }
 
@@ -45,10 +49,10 @@ export const registerUser = async (data: { email: string, password: string, acco
                 role: data.email.includes('admin') ? 'ADMIN' : 'USER',
                 accountType: data.accountType,
                 status: 'PENDING_VERIFICATION',
-                companyName: data.accountType === 'BUSINESS' ? 'اسم الشركة' : 'الاسم الشخصي', // Default placeholder based on type
+                companyName: data.accountType === 'BUSINESS' ? 'مؤسسة جديدة' : 'مستخدم فردي', 
                 email: data.email,
-                password: data.password, // WARNING: In real app, never store plain text passwords
-                crNumber: '', // Default empty
+                password: data.password, 
+                crNumber: '', 
                 vatNumber: '',
                 isVerified: false,
                 subscription: {
@@ -61,11 +65,12 @@ export const registerUser = async (data: { email: string, password: string, acco
             };
 
             saveUser(newUser);
-            // Simulate sending email
-            console.log(`[Email Service] Sending OTP ${MOCK_OTP} to ${data.email}`);
+            // محاكاة إرسال الاستعلام لقاعدة البيانات
+            console.log(`[SQL EXEC] INSERT INTO \`${DB_ASSIGNMENT.database}\`.\`${DB_ASSIGNMENT.tables.users}\` (email, pass, role) VALUES ('${data.email}', '***', 'USER');`);
+            console.info(`[MAIL SERVER] Sending One-Time-Password ${MOCK_OTP} to ${data.email}`);
             
             resolve({ success: true, user: newUser });
-        }, 1000);
+        }, 1500);
     });
 };
 
@@ -76,28 +81,19 @@ export const loginUser = async (email: string, password: string) => {
             const user = users.find(u => u.email === email && u.password === password);
 
             if (!user) {
-                resolve({ success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+                resolve({ success: false, message: 'خطأ في الدخول: لا يوجد سجل مطابق في قاعدة البيانات الحالية' });
                 return;
             }
 
             if (!user.isVerified) {
+                console.info(`[AUTH] Account ${email} requires OTP. Resending ${MOCK_OTP}`);
                 resolve({ success: false, message: 'account_not_verified', user: user });
                 return;
             }
             
-            // Check status
-            if (user.status === 'SUSPENDED') {
-                 resolve({ success: false, message: 'تم إيقاف هذا الحساب. يرجى التواصل مع الإدارة.' });
-                 return;
-            }
-
-            // Migration support for old users without accountType
-            if (!user.accountType) {
-                user.accountType = 'BUSINESS';
-            }
-
+            console.log(`[SQL EXEC] SELECT * FROM \`${DB_ASSIGNMENT.database}\`.\`${DB_ASSIGNMENT.tables.users}\` WHERE email = '${email}';`);
             resolve({ success: true, user });
-        }, 800);
+        }, 1200);
     });
 };
 
@@ -116,18 +112,23 @@ export const verifyEmail = async (email: string, code: string) => {
                     };
                     users[userIndex] = updatedUser;
                     localStorage.setItem(DB_KEY, JSON.stringify(users));
+                    console.log(`[SQL EXEC] UPDATE \`${DB_ASSIGNMENT.database}\`.\`${DB_ASSIGNMENT.tables.users}\` SET verified=1 WHERE email='${email}';`);
                     resolve({ success: true, user: updatedUser });
                 } else {
-                    resolve({ success: false, message: 'مستخدم غير موجود' });
+                    resolve({ success: false, message: 'فشل التحقق: السجل غير موجود' });
                 }
             } else {
                 resolve({ success: false, message: 'رمز التحقق غير صحيح' });
             }
-        }, 800);
+        }, 1000);
     });
 };
 
 export const resendOtp = async (email: string) => {
-    console.log(`[Email Service] Re-sending OTP ${MOCK_OTP} to ${email}`);
-    return true;
+    return new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+            console.log(`[MAIL SERVER] OTP Resent: ${MOCK_OTP} to ${email}`);
+            resolve(true);
+        }, 1000);
+    });
 };

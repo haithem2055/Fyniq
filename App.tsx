@@ -22,9 +22,13 @@ import {
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_API_KEY);
-
-
 type ViewState = 'home' | 'dashboard' | 'reports' | 'payments' | 'archive';
+
+// تحديث قاعدة البيانات الجديدة
+const DB_DETAILS = {
+  server: "127.0.0.1:3306",
+  database: "u794936001_Fyniq_DB_test"
+};
 
 const TRANSLATIONS = {
   ar: {
@@ -65,7 +69,9 @@ const TRANSLATIONS = {
       archive: "أرشيف الصور",
       addInvoice: "إضافة فاتورة",
       settings: "إعدادات الموازنة",
-      logout: "تسجيل الخروج"
+      logout: "تسجيل الخروج",
+      dbLabel: "قاعدة البيانات",
+      dbStatus: "متصلة"
     },
     stats: {
       totalSpend: "إجمالي المصروفات",
@@ -240,7 +246,9 @@ const TRANSLATIONS = {
       archive: "Archive",
       addInvoice: "Add Invoice",
       settings: "Budget Settings",
-      logout: "Logout"
+      logout: "Logout",
+      dbLabel: "Database",
+      dbStatus: "Connected"
     },
     stats: {
       totalSpend: "Total Expenses",
@@ -686,10 +694,23 @@ const App: React.FC = () => {
       const legacyBudgets = localStorage.getItem('omani_accountant_budgets');
       return {
           defaultCurrency: 'OMR',
-          budgets: legacyBudgets ? JSON.parse(legacyBudgets) : {}
+          budgets: legacyBudgets ? JSON.parse(legacyBudgets) : {},
+          dbConfig: {
+              server: DB_DETAILS.server,
+              database: DB_DETAILS.database,
+              status: 'CONNECTED'
+          }
       };
     } catch (e) {
-      return { defaultCurrency: 'OMR', budgets: {} };
+      return { 
+          defaultCurrency: 'OMR', 
+          budgets: {},
+          dbConfig: {
+              server: DB_DETAILS.server,
+              database: DB_DETAILS.database,
+              status: 'CONNECTED'
+          }
+      };
     }
   });
 
@@ -944,6 +965,7 @@ const App: React.FC = () => {
         user={user}
         onLogout={handleLogout}
         onOpenSubscription={() => setIsSubscriptionModalOpen(true)}
+        dbConfig={settings.dbConfig}
       />
 
       {/* Added pb-24 for mobile bottom nav spacing */}

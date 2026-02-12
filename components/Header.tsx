@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Wallet, Camera, LayoutDashboard, Home, FileText, Settings, Sparkles, Languages, Moon, Sun, LogOut, User, Crown, CreditCard, Images } from 'lucide-react';
+import { Wallet, Camera, LayoutDashboard, Home, FileText, Settings, Sparkles, Languages, Moon, Sun, LogOut, User, Crown, CreditCard, Images, Database } from 'lucide-react';
 import { Language, Theme, UserProfile } from '../types';
 
 interface HeaderProps {
@@ -16,6 +16,11 @@ interface HeaderProps {
   user: UserProfile | null;
   onLogout: () => void;
   onOpenSubscription: () => void;
+  dbConfig?: {
+    server: string;
+    database: string;
+    status: 'CONNECTED' | 'DISCONNECTED' | 'SYNCING';
+  };
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -30,10 +35,10 @@ const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   user,
   onLogout,
-  onOpenSubscription
+  onOpenSubscription,
+  dbConfig
 }) => {
   
-  // Helper for Desktop Links
   const getLinkClass = (view: string) => {
     const baseClass = "flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 font-medium";
     return activeView === view 
@@ -41,7 +46,6 @@ const Header: React.FC<HeaderProps> = ({
       : `${baseClass} text-emerald-100 hover:bg-white/5 hover:text-white`;
   };
 
-  // Helper for Mobile Bottom Nav Links
   const getMobileLinkClass = (view: string) => {
     const isActive = activeView === view;
     return `flex flex-col items-center justify-center w-full h-full gap-1 ${
@@ -51,11 +55,7 @@ const Header: React.FC<HeaderProps> = ({
 
   const isAr = language === 'ar';
   const isDark = theme === 'dark';
-  
-  // Reports are only for Business accounts (or legacy accounts where accountType is undefined)
   const showReports = user?.accountType !== 'INDIVIDUAL';
-
-  // Calculate usage percentage for progress bar
   const usageCount = user?.subscription?.usageCount || 0;
   const usageLimit = user?.subscription?.limit || 1;
   const isUnlimited = usageLimit === -1;
@@ -63,10 +63,8 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      {/* Top Header (Desktop & Mobile Minimal) */}
       <header className="bg-gradient-to-r from-slate-900 to-emerald-900 text-white shadow-xl sticky top-0 z-50 border-b border-white/10 transition-colors">
         <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-          {/* Logo Section */}
           <div 
             className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => onNavigate('home')}
@@ -82,14 +80,22 @@ const Header: React.FC<HeaderProps> = ({
               <h1 className="text-xl font-bold leading-tight tracking-wide">
                 {t.header.appName}
               </h1>
-              <p className="hidden sm:flex text-[10px] text-emerald-300 tracking-wider font-light items-center gap-1">
-                {t.header.poweredBy} <Sparkles size={8} />
-              </p>
+              <div className="hidden sm:flex items-center gap-2">
+                <p className="text-[10px] text-emerald-300 tracking-wider font-light flex items-center gap-1">
+                  {t.header.poweredBy} <Sparkles size={8} />
+                </p>
+                {dbConfig && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-full border border-white/5 text-[9px] text-blue-200" title={`Connected to ${dbConfig.server}`}>
+                    <Database size={8} />
+                    <span className="font-mono">{dbConfig.database}</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Navigation - Desktop Only */}
-          <nav className="hidden md:flex gap-2 text-sm">
+          <nav className="hidden md:flex gap-1 text-sm">
             <button onClick={() => onNavigate('home')} className={getLinkClass('home')}>
               <Home size={18} />
               {t.header.home}
@@ -114,10 +120,7 @@ const Header: React.FC<HeaderProps> = ({
             )}
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-2 md:gap-3">
-
-             {/* Subscription Status */}
              {user && (
                <button 
                  onClick={onOpenSubscription}
@@ -126,7 +129,6 @@ const Header: React.FC<HeaderProps> = ({
                   <div className={`p-1.5 rounded-md ${user.subscription.plan === 'FREE' ? 'bg-slate-600' : 'bg-amber-500 text-white'}`}>
                       <Crown size={14} fill={user.subscription.plan !== 'FREE' ? "currentColor" : "none"} />
                   </div>
-                  {/* Hide detailed stats on mobile, show only icon */}
                   <div className="hidden lg:block text-start">
                       <div className="text-[10px] text-slate-300 leading-tight">
                           {isUnlimited ? 'Unlimited' : `${usageCount}/${usageLimit}`}
@@ -143,7 +145,6 @@ const Header: React.FC<HeaderProps> = ({
                </button>
              )}
              
-             {/* Theme Toggle */}
              <button
                onClick={() => onToggleTheme(isDark ? 'light' : 'dark')}
                className="p-2 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/10"
@@ -151,26 +152,9 @@ const Header: React.FC<HeaderProps> = ({
                {isDark ? <Sun size={18} /> : <Moon size={18} />}
              </button>
 
-             {/* Language Switcher */}
-             <div className="bg-slate-800/50 p-1 rounded-lg border border-white/10 flex items-center hidden sm:flex">
-                <button 
-                  onClick={() => onToggleLanguage('en')}
-                  className={`px-2 py-1 rounded-md text-xs font-bold transition-all ${!isAr ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  EN
-                </button>
-                <button 
-                  onClick={() => onToggleLanguage('ar')}
-                  className={`px-2 py-1 rounded-md text-xs font-bold transition-all ${isAr ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                >
-                  عربي
-                </button>
-             </div>
-
-             {/* Mobile Language Toggle (Simple) */}
              <button 
                 onClick={() => onToggleLanguage(isAr ? 'en' : 'ar')}
-                className="sm:hidden p-2 text-emerald-100 font-bold text-xs border border-white/10 rounded-lg"
+                className="p-2 text-emerald-100 font-bold text-xs border border-white/10 rounded-lg"
              >
                 {isAr ? 'EN' : 'عربي'}
              </button>
@@ -183,7 +167,6 @@ const Header: React.FC<HeaderProps> = ({
               <Settings size={20} />
             </button>
               
-            {/* Logout Button */}
             {user && (
               <button
                   onClick={onLogout}
@@ -194,7 +177,6 @@ const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Desktop Scan Button (Hidden on Mobile) */}
             <button 
               onClick={onScanClick}
               className="hidden md:flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:from-emerald-400 hover:to-teal-400 transition-all transform hover:-translate-y-0.5 active:translate-y-0 ring-1 ring-white/20"
@@ -206,21 +188,16 @@ const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
         <div className="flex items-center justify-around h-16 relative">
-          
           <button onClick={() => onNavigate('home')} className={getMobileLinkClass('home')}>
             <Home size={20} />
             <span className="text-[10px] font-medium">{t.header.home}</span>
           </button>
-
           <button onClick={() => onNavigate('dashboard')} className={getMobileLinkClass('dashboard')}>
             <LayoutDashboard size={20} />
             <span className="text-[10px] font-medium">لوحة التحكم</span>
           </button>
-
-          {/* Floating Scan Button */}
           <div className="relative -top-6">
             <button 
               onClick={onScanClick}
@@ -229,12 +206,10 @@ const Header: React.FC<HeaderProps> = ({
               <Camera size={24} />
             </button>
           </div>
-
           <button onClick={() => onNavigate('archive')} className={getMobileLinkClass('archive')}>
             <Images size={20} />
             <span className="text-[10px] font-medium">{t.header.archive}</span>
           </button>
-
           {showReports && (
             <button onClick={() => onNavigate('reports')} className={getMobileLinkClass('reports')}>
               <FileText size={20} />

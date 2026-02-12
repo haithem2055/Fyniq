@@ -55,6 +55,11 @@ export type BudgetLimits = Partial<Record<ExpenseCategory, number>>;
 export interface AppSettings {
   defaultCurrency: string;
   budgets: BudgetLimits;
+  dbConfig?: {
+    server: string;
+    database: string;
+    status: 'CONNECTED' | 'DISCONNECTED' | 'SYNCING';
+  };
 }
 
 export type PlanType = 'FREE' | 'STANDARD' | 'ENTERPRISE';
