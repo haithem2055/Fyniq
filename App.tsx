@@ -19,6 +19,10 @@ import {
   Download, FileText, Printer, ArrowLeft, LayoutDashboard, AlertTriangle, 
   PieChart, BarChart3, ScanLine, BrainCircuit, ShieldCheck, Zap, ChevronRight, FileDown, Camera, Sun, Moon, Landmark, CreditCard, ShoppingBag, Search
 } from 'lucide-react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_API_KEY);
+
 
 type ViewState = 'home' | 'dashboard' | 'reports' | 'payments' | 'archive';
 
