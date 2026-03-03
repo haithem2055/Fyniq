@@ -1,3 +1,4 @@
+
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType, TextRun, AlignmentType, BorderStyle, HeadingLevel, TableLayoutType, Header } from "docx";
 import FileSaver from "file-saver";
 import { InvoiceData, DashboardStats } from "../types";
@@ -76,7 +77,7 @@ export const generateVatReturnReport = async (invoices: InvoiceData[]) => {
   const detailHeader = new TableRow({
     tableHeader: true,
     children: [
-      "الرقم الضريبي", "الضريبة", "الإجمالي", "الحالة", "المورد", "التاريخ"
+      "الرقم الضريبي", "الضريبة", "الإجمالي", "الحالة", "التصنيف", "المورد", "التاريخ"
     ].map(text => 
       new TableCell({
         shading: { fill: "E0F2F1" },
@@ -92,6 +93,7 @@ export const generateVatReturnReport = async (invoices: InvoiceData[]) => {
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.vatAmount.toFixed(3), color: inv.vatAmount > 0 ? "DC2626" : "000000", size: 20 })] })] }),
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.totalAmount.toFixed(3), bold: true, size: 20 })] })] }),
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, bidirectional: true, children: [arabicText(inv.vatStatus, false, 20)] })] }),
+        new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, bidirectional: true, children: [arabicText(inv.category, false, 20)] })] }),
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, bidirectional: true, children: [arabicText(inv.vendorName, false, 20)] })] }),
         new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: inv.date, size: 18 })] })] }),
       ],
@@ -129,8 +131,7 @@ export const generateVatReturnReport = async (invoices: InvoiceData[]) => {
         new Table({
             layout: TableLayoutType.FIXED,
             width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: [vatReturnHeader, rowStandardBase, rowStandardVat, rowZero, rowExempt],
-            spacing: { after: 400 }
+            rows: [vatReturnHeader, rowStandardBase, rowStandardVat, rowZero, rowExempt]
         }),
 
         // Warning Section if any Standard Rated invoice misses Tax ID

@@ -1,49 +1,36 @@
 
-import React, { useState, useEffect } from 'react';
-import { BrainCircuit, Building2, Lock, Mail, ArrowRight, Loader2, TrendingUp, PieChart, Wallet, CheckCircle2, AlertCircle, User, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { BrainCircuit, Building2, Lock, Mail, ArrowRight, Loader2, Wallet, CheckCircle2, AlertCircle, User, ArrowLeft, Eye, EyeOff, Languages } from 'lucide-react';
 import { UserProfile, Language, AccountType } from '../types';
-import { loginUser, registerUser, verifyEmail, resendOtp } from '../services/authService';
+import { loginUser, registerUser } from '../services/authService';
 
 interface LoginScreenProps {
   onLogin: (profile: UserProfile) => void;
   translations: any;
   language: Language;
+  onToggleLanguage: (lang: Language) => void;
 }
 
-type AuthView = 'SELECTION' | 'LOGIN' | 'REGISTER' | 'VERIFY';
+type AuthView = 'SELECTION' | 'LOGIN' | 'REGISTER';
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, language }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, language, onToggleLanguage }) => {
   const [view, setView] = useState<AuthView>('SELECTION');
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   
   // Form States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState(''); // New field for Company Name or Full Name
   const [showPassword, setShowPassword] = useState(false);
   
   // Validation States
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   
-  // Verification State
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const [pendingEmail, setPendingEmail] = useState('');
-  const [timer, setTimer] = useState(0);
-  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const isAr = language === 'ar';
-
-  // OTP Timer Logic
-  useEffect(() => {
-    let interval: any;
-    if (timer > 0) {
-      interval = setInterval(() => setTimer((t) => t - 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timer]);
 
   const validateEmail = (val: string) => {
     setEmail(val);
@@ -75,7 +62,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
 
   const handleSelection = (type: AccountType) => {
       setAccountType(type);
-      setView('LOGIN');
+      setView('LOGIN'); // Start with Login, user can switch to Register
   };
 
   const handleBack = () => {
@@ -83,6 +70,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
           setView('SELECTION');
           setAccountType(null);
           setError(null);
+          setName('');
+          setEmail('');
+          setPassword('');
       }
   };
 
@@ -98,10 +88,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
         
         if (result.success && result.user) {
             onLogin(result.user);
-        } else if (result.message === 'account_not_verified' && result.user) {
-            setPendingEmail(result.user.email);
-            setTimer(60);
-            setView('VERIFY');
         } else {
             setError(result.message || (isAr ? 'فشل تسجيل الدخول' : 'Login failed'));
         }
@@ -114,21 +100,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailError || passwordError || !email || !password) return;
+    if (emailError || passwordError || !email || !password || !name) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
         const result = await registerUser({
-            email, password, accountType: accountType || 'BUSINESS'
+            email, 
+            password, 
+            accountType: accountType || 'BUSINESS',
+            companyName: name // Pass the specific name
         });
 
         if (result.success && result.user) {
-            setPendingEmail(result.user.email);
-            setTimer(60);
-            setView('VERIFY');
-            setSuccessMsg(isAr ? `تم إرسال رمز التحقق إلى ${result.user.email}` : `OTP sent to ${result.user.email}`);
+            // Auto login after registration
+            onLogin(result.user);
         } else {
             setError(result.message || (isAr ? 'فشل إنشاء الحساب' : 'Registration failed'));
         }
@@ -139,49 +126,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
     }
   };
 
-  const handleVerify = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const code = otp.join('');
-      if (code.length !== 4) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-          const result = await verifyEmail(pendingEmail, code);
-          if (result.success && result.user) {
-              onLogin(result.user);
-          } else {
-              setError(result.message || (isAr ? 'رمز التحقق خاطئ' : 'Incorrect OTP'));
-          }
-      } catch (err) {
-          setError(isAr ? 'حدث خطأ في التحقق' : 'Verification error');
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const handleResendOtp = async () => {
-      if (timer > 0) return;
-      await resendOtp(pendingEmail);
-      setTimer(60);
-      setSuccessMsg(isAr ? 'تم إعادة إرسال الرمز بنجاح' : 'Code resent successfully');
-      setTimeout(() => setSuccessMsg(null), 3000);
-  };
-
-  const handleOtpChange = (index: number, value: string) => {
-      if (!/^\d*$/.test(value)) return;
-      if (value.length > 1) return;
-      const newOtp = [...otp];
-      newOtp[index] = value;
-      setOtp(newOtp);
-
-      if (value && index < 3) {
-          const nextInput = document.getElementById(`otp-${index + 1}`);
-          nextInput?.focus();
-      }
-  };
-
   const handleSocialLogin = (provider: string) => {
       setIsLoading(true);
       setTimeout(() => {
@@ -190,8 +134,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
       }, 1000);
   };
 
+  // Determine Title based on Account Type
+  const getTitle = () => {
+      if (view === 'SELECTION') return t.login.selectType;
+      if (view === 'LOGIN') return t.login.welcomeBack;
+      
+      // Register View Custom Titles
+      if (accountType === 'BUSINESS') return isAr ? "تسجيل منشأة جديدة" : "Register Business";
+      return isAr ? "تسجيل حساب شخصي" : "Register Personal Account";
+  };
+
   return (
     <div className={`min-h-screen w-full flex bg-slate-50 dark:bg-slate-950 transition-colors duration-300 ${isAr ? 'rtl' : 'ltr'}`} dir={isAr ? 'rtl' : 'ltr'}>
+      
+      {/* Floating Language Switcher */}
+      <div className={`fixed top-6 ${isAr ? 'left-6' : 'right-6'} z-50`}>
+          <button 
+            onClick={() => onToggleLanguage(isAr ? 'en' : 'ar')}
+            className="flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl hover:scale-105 transition-all text-sm font-bold text-slate-700 dark:text-slate-200"
+          >
+            <Languages size={18} className="text-emerald-500" />
+            <span>{isAr ? 'English' : 'العربية'}</span>
+          </button>
+      </div>
+
       {/* Visual Side (Hidden on Mobile) */}
       <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center p-12">
         <div 
@@ -200,12 +166,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
                 backgroundImage: `url('https://images.unsplash.com/photo-1642543492481-44e81e3914a7?q=80&w=2070&auto=format&fit=crop')`, 
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                opacity: 0.15,
-                filter: 'grayscale(100%)'
             }}
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-emerald-950/90 to-slate-900/95 z-0"></div>
-        <div className="relative z-10 text-white max-w-lg backdrop-blur-sm bg-slate-900/30 p-8 rounded-3xl border border-white/10 shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-emerald-950/60 to-slate-900/80 z-0"></div>
+        <div className="relative z-10 text-white max-w-lg backdrop-blur-sm bg-slate-900/40 p-8 rounded-3xl border border-white/20 shadow-2xl">
           <div className="inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/30 px-4 py-1.5 rounded-full text-sm font-semibold text-emerald-300 mb-8 shadow-lg shadow-emerald-900/20">
             <BrainCircuit size={16} />
             <span>{t.aiBadge}</span>
@@ -213,7 +177,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
           <h1 className="text-5xl font-extrabold mb-6 leading-tight tracking-tight">
             {t.login.heroTitle}
           </h1>
-          <p className="text-slate-300 text-lg leading-relaxed font-light">
+          <p className="text-slate-200 text-lg leading-relaxed font-light">
             {t.login.heroDesc}
           </p>
           <div className="mt-10 flex items-center gap-4 pt-8 border-t border-white/10">
@@ -222,7 +186,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
                 <div className="w-10 h-10 rounded-full border-2 border-slate-800 bg-emerald-600 flex items-center justify-center text-xs font-bold">F</div>
                 <div className="w-10 h-10 rounded-full border-2 border-slate-800 bg-blue-600 flex items-center justify-center text-xs font-bold">M</div>
              </div>
-             <div className="text-sm text-slate-400 leading-tight">
+             <div className="text-sm text-slate-300 leading-tight">
                 <span className="block text-white font-bold text-base">2,500+</span>
                 مؤسسة عمانية تثق بنا
              </div>
@@ -245,47 +209,31 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
           )}
 
           <div className="text-center lg:text-start">
-             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl mb-6 shadow-lg shadow-emerald-500/20 lg:hidden">
-                <Wallet size={28} />
+             <div className={`inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br ${accountType === 'BUSINESS' ? 'from-emerald-500 to-teal-600' : 'from-blue-500 to-indigo-600'} text-white rounded-2xl mb-6 shadow-lg shadow-emerald-500/20 lg:hidden`}>
+                {accountType === 'INDIVIDUAL' ? <User size={28} /> : (accountType === 'BUSINESS' ? <Building2 size={28} /> : <Wallet size={28} />)}
              </div>
              
-             {view === 'SELECTION' && (
-                 <>
-                    <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                        {t.login.selectType}
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-                        {isAr ? "اختر نوع الحساب للمتابعة" : "Choose account type to proceed"}
-                    </p>
-                 </>
-             )}
-             
-             {view !== 'SELECTION' && (
-                 <>
-                    <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                        {view === 'LOGIN' && t.login.welcomeBack}
-                        {view === 'REGISTER' && (isAr ? "إنشاء حساب جديد" : "Create New Account")}
-                        {view === 'VERIFY' && (isAr ? "تأكيد البريد الإلكتروني" : "Verify Email")}
-                    </h2>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-                        {view === 'LOGIN' && t.login.subtitle}
-                        {view === 'REGISTER' && (isAr ? "سجل بريدك الإلكتروني للبدء" : "Enter your email to get started")}
-                        {view === 'VERIFY' && (isAr ? `أدخل الرمز المرسل إلى ${pendingEmail}` : `Enter code sent to ${pendingEmail}`)}
-                    </p>
-                 </>
-             )}
+             {/* Header Section */}
+             <>
+                <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                    {getTitle()}
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
+                    {view === 'SELECTION' && (isAr ? "اختر نوع الحساب للمتابعة" : "Choose account type to proceed")}
+                    {view === 'LOGIN' && t.login.subtitle}
+                    {view === 'REGISTER' && (
+                        accountType === 'BUSINESS' 
+                        ? (isAr ? "سجل بيانات مؤسستك للبدء" : "Enter business details to start")
+                        : (isAr ? "سجل بياناتك الشخصية للبدء" : "Enter personal details to start")
+                    )}
+                </p>
+             </>
           </div>
 
           {error && (
             <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-4 rounded-xl flex items-center gap-3 text-sm font-bold animate-shake border border-rose-100 dark:border-rose-800">
                 <AlertCircle size={18} />
                 {error}
-            </div>
-          )}
-          {successMsg && (
-            <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 p-4 rounded-xl flex items-center gap-3 text-sm font-bold border border-emerald-100 dark:border-emerald-800">
-                <CheckCircle2 size={18} />
-                {successMsg}
             </div>
           )}
 
@@ -325,37 +273,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
 
           {(view === 'LOGIN' || view === 'REGISTER') && (
             <div className="space-y-6 animate-fadeIn">
-                {/* Social Buttons */}
-                <div className="grid grid-cols-2 gap-4">
-                    <button 
-                        onClick={() => handleSocialLogin('Google')}
-                        className="flex items-center justify-center gap-2 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm group"
-                    >
-                        <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
-                            <path fill="#EA4335" d="M12 5.04c1.94 0 3.51.68 4.75 1.72l3.41-3.41C17.9 1.19 15.17 0 12 0 7.31 0 3.25 2.67 1.19 6.6l3.88 3.01c1.07-3.23 4.09-5.57 6.93-5.57z"/>
-                            <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.89 3.01c2.27-2.1 3.53-5.2 3.53-8.83z"/>
-                            <path fill="#FBBC05" d="M5.07 14.61c-.28-.84-.44-1.74-.44-2.61s.16-1.77.44-2.61L1.19 6.6C.43 8.15 0 9.94 0 12s.43 3.85 1.19 5.4l3.88-3.01z"/>
-                            <path fill="#34A853" d="M12 24c3.24 0 5.97-1.07 7.96-2.91l-3.89-3.01c-1.11.75-2.53 1.19-4.07 1.19-2.84 0-5.26-1.92-6.12-4.51l-3.88 3.01C3.25 21.33 7.31 24 12 24z"/>
-                        </svg>
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Google</span>
-                    </button>
-                    <button 
-                        onClick={() => handleSocialLogin('Facebook')}
-                        className="flex items-center justify-center gap-2 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm group"
-                    >
-                        <svg className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                        </svg>
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Facebook</span>
-                    </button>
-                </div>
-
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200 dark:border-slate-700"></span></div>
-                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-50 dark:bg-slate-950 px-2 text-slate-400">{isAr ? 'أو عبر البريد' : 'OR WITH EMAIL'}</span></div>
-                </div>
-
                 <form onSubmit={view === 'LOGIN' ? handleLogin : handleRegister} className="space-y-4">
+                    
+                    {/* Name Field - ONLY FOR REGISTER */}
+                    {view === 'REGISTER' && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                                {accountType === 'BUSINESS' ? (isAr ? 'اسم الشركة / المؤسسة' : 'Company Name') : (isAr ? 'الاسم الكامل' : 'Full Name')}
+                            </label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 start-0 ps-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                                    {accountType === 'BUSINESS' ? <Building2 size={18} /> : <User size={18} />}
+                                </div>
+                                <input 
+                                    type="text" 
+                                    required
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="block w-full ps-10 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none transition-all dark:text-white shadow-sm"
+                                    placeholder={accountType === 'BUSINESS' ? (isAr ? 'مثال: مشاريع الأفق الحديثة' : 'Ex: Modern Horizons LLC') : (isAr ? 'مثال: محمد أحمد' : 'Ex: John Doe')}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t.login.email}</label>
                         <div className="relative group">
@@ -401,8 +342,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
 
                     <button 
                         type="submit" 
-                        disabled={isLoading || !!emailError || !!passwordError}
-                        className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold shadow-lg transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${view === 'LOGIN' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/30' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/30'} text-white mt-4`}
+                        disabled={isLoading || !!emailError || !!passwordError || (view === 'REGISTER' && !name)}
+                        className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold shadow-lg transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${accountType === 'BUSINESS' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/30' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-500/30'} text-white mt-4`}
                     >
                         {isLoading ? <Loader2 size={24} className="animate-spin" /> : <span>{view === 'LOGIN' ? t.login.signInBtn : (isAr ? "إنشاء حساب" : "Create Account")}</span>}
                     </button>
@@ -416,67 +357,38 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, translations: t, lan
                         </span>
                      </p>
                 </div>
-            </div>
-          )}
 
-          {view === 'VERIFY' && (
-             <form onSubmit={handleVerify} className="space-y-8 animate-fadeIn text-center">
-                <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center text-emerald-600 animate-pulse border-4 border-white dark:border-slate-800 shadow-xl">
-                        <Mail size={32} />
-                    </div>
+                {/* Social Buttons - Moved to bottom */}
+                <div className="relative mt-8">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200 dark:border-slate-700"></span></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-50 dark:bg-slate-950 px-2 text-slate-400">{isAr ? 'أو عبر' : 'OR WITH'}</span></div>
                 </div>
 
-                <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{isAr ? "تحقق من بريدك" : "Check your email"}</h3>
-                    <p className="text-sm text-slate-500 max-w-xs mx-auto">{isAr ? `لقد أرسلنا رمز التحقق المكون من 4 أرقام إلى ${pendingEmail}` : `We sent a 4-digit code to ${pendingEmail}`}</p>
-                </div>
-
-                <div className="flex justify-center gap-3" dir="ltr">
-                    {otp.map((digit, idx) => (
-                        <input
-                            key={idx}
-                            id={`otp-${idx}`}
-                            type="text"
-                            maxLength={1}
-                            value={digit}
-                            onChange={(e) => handleOtpChange(idx, e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-                                    document.getElementById(`otp-${idx - 1}`)?.focus();
-                                }
-                            }}
-                            className="w-14 h-16 text-center text-3xl font-black border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 outline-none transition-all dark:text-white shadow-inner"
-                        />
-                    ))}
-                </div>
-
-                <button 
-                    type="submit" 
-                    disabled={isLoading || otp.some(d => !d)}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50"
-                >
-                    {isLoading ? <Loader2 size={24} className="animate-spin" /> : <span>{isAr ? "تحقق وتفعيل" : "Verify & Activate"}</span>}
-                </button>
-
-                <div className="text-sm text-slate-500 bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                    {isAr ? "لم يصلك الرمز؟" : "Didn't receive code?"}
+                <div className="grid grid-cols-2 gap-4">
                     <button 
-                        type="button" 
-                        onClick={handleResendOtp} 
-                        disabled={timer > 0}
-                        className={`font-bold mx-2 ${timer > 0 ? 'text-slate-400' : 'text-emerald-600 hover:underline'}`}
+                        onClick={() => handleSocialLogin('Google')}
+                        className="flex items-center justify-center gap-2 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm group"
                     >
-                        {isAr ? "إعادة إرسال" : "Resend"} {timer > 0 && `(${timer}s)`}
+                        <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+                            <path fill="#EA4335" d="M12 5.04c1.94 0 3.51.68 4.75 1.72l3.41-3.41C17.9 1.19 15.17 0 12 0 7.31 0 3.25 2.67 1.19 6.6l3.88 3.01c1.07-3.23 4.09-5.57 6.93-5.57z"/>
+                            <path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.89 3.01c2.27-2.1 3.53-5.2 3.53-8.83z"/>
+                            <path fill="#FBBC05" d="M5.07 14.61c-.28-.84-.44-1.74-.44-2.61s.16-1.77.44-2.61L1.19 6.6C.43 8.15 0 9.94 0 12s.43 3.85 1.19 5.4l3.88-3.01z"/>
+                            <path fill="#34A853" d="M12 24c3.24 0 5.97-1.07 7.96-2.91l-3.89-3.01c-1.11.75-2.53 1.19-4.07 1.19-2.84 0-5.26-1.92-6.12-4.51l-3.88 3.01C3.25 21.33 7.31 24 12 24z"/>
+                        </svg>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Google</span>
+                    </button>
+                    <button 
+                        onClick={() => handleSocialLogin('Facebook')}
+                        className="flex items-center justify-center gap-2 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm group"
+                    >
+                        <svg className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                        </svg>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Facebook</span>
                     </button>
                 </div>
-
-                 <button type="button" onClick={() => setView('LOGIN')} className="text-xs text-slate-400 hover:text-emerald-500 font-medium transition-colors">
-                    {isAr ? "العودة لتسجيل الدخول" : "Back to Login"}
-                </button>
-             </form>
+            </div>
           )}
-
         </div>
       </div>
     </div>

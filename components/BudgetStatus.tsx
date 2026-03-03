@@ -1,18 +1,20 @@
+
 import React from 'react';
 import { ExpenseCategory, BudgetLimits, CATEGORY_MAPPING } from '../types';
-import { AlertTriangle, CheckCircle, TrendingDown, BellRing } from 'lucide-react';
+import { AlertTriangle, CheckCircle, TrendingDown, BellRing, Home, ShoppingBasket, Car, Heart, Landmark, Coffee, ShoppingBag, PiggyBank, Briefcase, Zap, DollarSign, Users } from 'lucide-react';
 
 interface BudgetStatusProps {
   budgets: BudgetLimits;
   currentSpending: Record<string, number>;
   translations: any;
   language: string;
+  hiddenCategories?: string[];
 }
 
-const BudgetStatus: React.FC<BudgetStatusProps> = ({ budgets, currentSpending, translations: t, language }) => {
-  // Filter categories that actually have a budget set
+const BudgetStatus: React.FC<BudgetStatusProps> = ({ budgets, currentSpending, translations: t, language, hiddenCategories = [] }) => {
+  // Filter categories that actually have a budget set AND are not hidden
   const activeBudgets = Object.entries(budgets)
-    .filter(([_, limit]) => typeof limit === 'number' && limit > 0) as [string, number][];
+    .filter(([cat, limit]) => typeof limit === 'number' && limit > 0 && !hiddenCategories.includes(cat)) as [string, number][];
 
   if (activeBudgets.length === 0) {
     return (
@@ -28,6 +30,28 @@ const BudgetStatus: React.FC<BudgetStatusProps> = ({ budgets, currentSpending, t
 
   const getCategoryLabel = (cat: string) => {
     return language === 'en' && CATEGORY_MAPPING[cat] ? CATEGORY_MAPPING[cat] : cat;
+  };
+
+  const getCategoryIcon = (cat: string) => {
+      switch(cat) {
+          // Individual
+          case ExpenseCategory.HOUSING: return <Home size={16} className="text-blue-500" />;
+          case ExpenseCategory.GROCERIES: return <ShoppingBasket size={16} className="text-emerald-500" />;
+          case ExpenseCategory.TRANSPORT: return <Car size={16} className="text-amber-500" />;
+          case ExpenseCategory.HEALTH: return <Heart size={16} className="text-rose-500" />;
+          case ExpenseCategory.DEBT: return <Landmark size={16} className="text-indigo-500" />;
+          case ExpenseCategory.ENTERTAINMENT: return <Coffee size={16} className="text-pink-500" />;
+          case ExpenseCategory.SHOPPING: return <ShoppingBag size={16} className="text-purple-500" />;
+          case ExpenseCategory.SAVINGS: return <PiggyBank size={16} className="text-green-600" />;
+          
+          // Business
+          case ExpenseCategory.COGS: return <Briefcase size={16} className="text-teal-600" />;
+          case ExpenseCategory.UTILITIES: return <Zap size={16} className="text-yellow-500" />;
+          case ExpenseCategory.SALARY: return <Users size={16} className="text-blue-600" />;
+          case ExpenseCategory.OPERATING: return <DollarSign size={16} className="text-cyan-500" />;
+
+          default: return <DollarSign size={16} className="text-slate-400" />;
+      }
   };
 
   return (
@@ -58,11 +82,12 @@ const BudgetStatus: React.FC<BudgetStatusProps> = ({ budgets, currentSpending, t
             >
               <div className="flex justify-between items-end mb-2">
                 <div className="flex flex-col">
-                  <span className={`text-sm font-bold ${isOverBudget ? 'text-rose-700 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                  <span className={`text-sm font-bold flex items-center gap-2 ${isOverBudget ? 'text-rose-700 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                    {getCategoryIcon(category)}
                     {getCategoryLabel(category)}
                   </span>
                   {isOverBudget && (
-                    <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1 mt-1">
                       <TrendingDown size={10} />
                       تجاوز بنسبة {Math.round((spent/limit)*100 - 100)}%
                     </span>

@@ -84,13 +84,6 @@ const Header: React.FC<HeaderProps> = ({
                 <p className="text-[10px] text-emerald-300 tracking-wider font-light flex items-center gap-1">
                   {t.header.poweredBy} <Sparkles size={8} />
                 </p>
-                {dbConfig && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/10 rounded-full border border-white/5 text-[9px] text-blue-200" title={`Connected to ${dbConfig.server}`}>
-                    <Database size={8} />
-                    <span className="font-mono">{dbConfig.database}</span>
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -189,15 +182,17 @@ const Header: React.FC<HeaderProps> = ({
       </header>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center justify-around h-16 relative">
+        <div className="flex items-center justify-around h-16 relative px-2">
           <button onClick={() => onNavigate('home')} className={getMobileLinkClass('home')}>
             <Home size={20} />
             <span className="text-[10px] font-medium">{t.header.home}</span>
           </button>
+          
           <button onClick={() => onNavigate('dashboard')} className={getMobileLinkClass('dashboard')}>
             <LayoutDashboard size={20} />
-            <span className="text-[10px] font-medium">لوحة التحكم</span>
+            <span className="text-[10px] font-medium">{t.header.dashboard}</span>
           </button>
+          
           <div className="relative -top-6">
             <button 
               onClick={onScanClick}
@@ -206,16 +201,18 @@ const Header: React.FC<HeaderProps> = ({
               <Camera size={24} />
             </button>
           </div>
+
+          <button onClick={() => onNavigate('payments')} className={getMobileLinkClass('payments')}>
+            <CreditCard size={20} />
+            <span className="text-[10px] font-medium">{t.header.payments}</span>
+          </button>
+
           <button onClick={() => onNavigate('archive')} className={getMobileLinkClass('archive')}>
             <Images size={20} />
             <span className="text-[10px] font-medium">{t.header.archive}</span>
           </button>
-          {showReports && (
-            <button onClick={() => onNavigate('reports')} className={getMobileLinkClass('reports')}>
-              <FileText size={20} />
-              <span className="text-[10px] font-medium">{t.header.reports}</span>
-            </button>
-          )}
+          
+          {/* Note: If more items are needed, consider a 'More' menu or scrollable container */}
         </div>
       </div>
     </>

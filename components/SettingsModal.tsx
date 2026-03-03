@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { X, Save, Calculator, Globe, CreditCard, Building2, UserCircle, FileBadge, Mail } from 'lucide-react';
-import { ExpenseCategory, AppSettings, CURRENCIES, CATEGORY_MAPPING, UserProfile } from '../types';
+import { X, Save, Calculator, Globe, CreditCard, Building2, UserCircle, FileBadge, Mail, Plus, Trash2 } from 'lucide-react';
+import { ExpenseCategory, AppSettings, CURRENCIES, CATEGORY_MAPPING, UserProfile, BUSINESS_CATEGORIES, INDIVIDUAL_CATEGORIES } from '../types';
 
 interface SettingsModalProps {
   currentSettings: AppSettings;
@@ -27,6 +27,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<Tab>('general');
   const [settings, setSettings] = useState<AppSettings>(currentSettings);
   
+  // Custom Budget State
+  const [newCustomCategory, setNewCustomCategory] = useState('');
+  const [newCustomBudget, setNewCustomBudget] = useState('');
+
   // Profile State
   const [profile, setProfile] = useState<UserProfile>(userProfile || {
       id: '',
@@ -46,7 +50,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }
   });
 
-  const handleBudgetChange = (category: ExpenseCategory, value: string) => {
+  const handleBudgetChange = (category: string, value: string) => {
     const numValue = parseFloat(value);
     setSettings(prev => ({
       ...prev,
@@ -55,6 +59,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           [category]: isNaN(numValue) ? 0 : numValue
       }
     }));
+  };
+
+  const handleAddCustomBudget = () => {
+    if (newCustomCategory.trim() && newCustomBudget) {
+        handleBudgetChange(newCustomCategory.trim(), newCustomBudget);
+        setNewCustomCategory('');
+        setNewCustomBudget('');
+    }
+  };
+
+  const handleDeleteBudget = (category: string) => {
+      const newBudgets = { ...settings.budgets };
+      delete newBudgets[category];
+      
+      const isStandard = (isBusiness ? BUSINESS_CATEGORIES : INDIVIDUAL_CATEGORIES).includes(category as ExpenseCategory);
+      
+      setSettings(prev => ({
+          ...prev,
+          budgets: newBudgets,
+          hiddenCategories: isStandard 
+            ? [...(prev.hiddenCategories || []), category]
+            : prev.hiddenCategories
+      }));
   };
 
   const handleCurrencyChange = (code: string) => {
@@ -68,7 +95,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (activeTab === 'profile') {
         onUpdateProfile(profile);
     } else {
-        onSave(settings);
+        // Auto-add pending custom budget if user forgot to click (+)
+        let finalSettings = { ...settings };
+        if (activeTab === 'budgets' && newCustomCategory.trim() && newCustomBudget) {
+            const numVal = parseFloat(newCustomBudget);
+            if (!isNaN(numVal)) {
+                finalSettings.budgets = {
+                    ...finalSettings.budgets,
+                    [newCustomCategory.trim()]: numVal
+                };
+            }
+        }
+        onSave(finalSettings);
     }
     onClose();
   };
@@ -79,6 +117,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const isAr = language === 'ar';
   const isBusiness = profile.accountType === 'BUSINESS';
+
+  // Determine standard categories based on account type
+  const allStandardCategories = isBusiness ? BUSINESS_CATEGORIES : INDIVIDUAL_CATEGORIES;
+  const standardCategories = allStandardCategories.filter(cat => !(settings.hiddenCategories || []).includes(cat));
+  
+  // Custom categories are those present in settings.budgets but NOT in the standard list
+  const customCategories = Object.keys(settings.budgets).filter(cat => !allStandardCategories.includes(cat as ExpenseCategory));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -155,26 +200,104 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {activeTab === 'budgets' && (
-                <div className="space-y-4 animate-fadeIn">
+                <div className="space-y-6 animate-fadeIn">
                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{t.settings.budgetDesc}</p>
-                     {Object.values(ExpenseCategory).map((category) => (
-                        <div key={category} className="flex items-center gap-4">
-                        <label className="w-1/2 text-sm font-medium text-slate-700 dark:text-slate-300">{getCategoryLabel(category)}</label>
-                        <div className="relative w-1/2">
-                            <input
-                            type="number"
-                            min="0"
-                            step="10"
-                            value={settings.budgets[category] || ''}
-                            onChange={(e) => handleBudgetChange(category, e.target.value)}
-                            placeholder="0.000"
-                            className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-left ltr"
-                            dir="ltr"
+                     
+                     {/* Add Custom Category Section */}
+                     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 mb-6">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-white mb-3 flex items-center gap-2">
+                            <Plus size={16} className="text-blue-500" />
+                            {isAr ? 'إضافة بند موازنة خاص' : 'Add Custom Budget Item'}
+                        </h4>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text"
+                                value={newCustomCategory}
+                                onChange={(e) => setNewCustomCategory(e.target.value)}
+                                placeholder={isAr ? "اسم البند (مثلاً: إيجار)" : "Item Name"}
+                                className="flex-1 px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none focus:border-blue-500"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">{t.settings.currencyUnit}</span>
+                            <input 
+                                type="number"
+                                value={newCustomBudget}
+                                onChange={(e) => setNewCustomBudget(e.target.value)}
+                                placeholder="0.00"
+                                className="w-24 px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 dark:text-white outline-none focus:border-blue-500 font-mono"
+                                dir="ltr"
+                            />
+                            <button 
+                                onClick={handleAddCustomBudget}
+                                disabled={!newCustomCategory || !newCustomBudget}
+                                className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-xl transition-colors disabled:opacity-50"
+                            >
+                                <Plus size={20} />
+                            </button>
                         </div>
-                        </div>
-                    ))}
+                     </div>
+
+                     <div className="space-y-4">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">{isAr ? 'البنود الأساسية' : 'Standard Categories'}</h4>
+                        {standardCategories.map((category) => (
+                            <div key={category} className="flex items-center gap-4 group">
+                                <div className="w-1/2 flex items-center gap-2">
+                                    <button 
+                                        onClick={() => handleDeleteBudget(category)}
+                                        className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                                        title={isAr ? "حذف البند" : "Delete Item"}
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate" title={getCategoryLabel(category)}>
+                                        {getCategoryLabel(category)}
+                                    </label>
+                                </div>
+                                <div className="relative w-1/2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="10"
+                                        value={settings.budgets[category] || ''}
+                                        onChange={(e) => handleBudgetChange(category, e.target.value)}
+                                        placeholder="0.000"
+                                        className="w-full px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-left ltr"
+                                        dir="ltr"
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">{t.settings.currencyUnit}</span>
+                                </div>
+                            </div>
+                        ))}
+
+                        {customCategories.length > 0 && (
+                            <>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-6 pt-2 border-t border-slate-100 dark:border-slate-800">{isAr ? 'بنود مضافة يدوياً' : 'Custom Items'}</h4>
+                                {customCategories.map((category) => (
+                                    <div key={category} className="flex items-center gap-4 group">
+                                        <div className="w-1/2 flex items-center gap-2">
+                                            <button 
+                                                onClick={() => handleDeleteBudget(category)}
+                                                className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate" title={category}>{category}</label>
+                                        </div>
+                                        <div className="relative w-1/2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="10"
+                                                value={settings.budgets[category] || ''}
+                                                onChange={(e) => handleBudgetChange(category, e.target.value)}
+                                                className="w-full px-4 py-2 border border-blue-100 dark:border-blue-900/30 bg-blue-50/30 dark:bg-blue-900/10 text-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-left ltr"
+                                                dir="ltr"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">{t.settings.currencyUnit}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                     </div>
                 </div>
             )}
 

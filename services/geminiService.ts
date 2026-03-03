@@ -52,34 +52,36 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries = 5, initialDel
   throw new Error("API Error");
 }
 
-export const processInvoiceWithGemini = async (fileData: { data: string, mimeType: string }, defaultCurrency: string = 'OMR'): Promise<Omit<InvoiceData, 'id'>> => {
+export const processInvoiceWithGemini = async (
+  fileData: { data: string, mimeType: string }, 
+  defaultCurrency: string = 'OMR',
+  scanMode: 'tax_invoice' | 'bank_receipt' = 'tax_invoice'
+): Promise<Omit<InvoiceData, 'id'>> => {
   return retryWithBackoff(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
+    const isBankMode = scanMode === 'bank_receipt';
+
     const systemInstruction = `
       Identity: You are "Fyniq AI", an expert Omani Accountant.
       
       **CRITICAL STEP - VALIDATION:**
-      First, analyze the image content. Is this a valid financial document (Invoice, Receipt, POS Slip, Tax Invoice, or Payment Confirmation Screenshot)?
-      - If the image is a person, animal, landscape, random object, or unreadable blur: Set 'isInvoice' to FALSE.
-      - If the image contains financial transaction details (amount, date, vendor): Set 'isInvoice' to TRUE.
+      First, analyze the image content. Is this a valid financial document?
+      - If scanMode is 'tax_invoice': Look for a Tax Invoice, Bill, or Receipt.
+      - If scanMode is 'bank_receipt': Look for a Bank POS Slip, Payment Confirmation, or Card Receipt.
+      - If the image is random/unreadable: Set 'isInvoice' to FALSE.
+      - Otherwise: Set 'isInvoice' to TRUE.
 
       **Processing Rules (Only if isInvoice is TRUE):**
-      1. **Vendor**: Look for merchant name (e.g., "ARAB SWEETS").
-      2. **Date**: Extract the date. If time is present, include it in description.
-      3. **Card Processing**: 
-         - Check if it's a Visa/MasterCard receipt. 
-         - Extract last 4 digits of the card (e.g. from 463609******3970, extract "3970").
-         - Extract Auth Code/RRN if available.
-      4. **Oman VAT Logic**: If it's a small grocery/sweet shop POS receipt, it's usually standard rated (5%) included in price, or Zero-rated if it's basic food.
-      5. **Currency**: Default to OMR.
-
-      **Output Fields**:
-      - isInvoice: Boolean (True/False).
-      - paymentMethod: 'CARD' if visa/mastercard details found, otherwise 'CASH'.
-      - cardLast4: String (Last 4 digits only).
-      - authCode: String (Auth/Approval code).
-      - vatStatus: If POS receipt from a bank, set to 'مطابق' if total matches.
+      1. **Vendor/Company**: Identify the merchant name.
+      2. **Bank Name**: ${isBankMode ? 'MANDATORY: Identify the bank (e.g., Bank Muscat, NBO, Bank Dhofar).' : 'Optional: Identify the bank if it is a POS receipt.'}
+      3. **Date**: Extract the date accurately.
+      4. **Card Processing**: 
+         - ${isBankMode ? 'MANDATORY: Extract last 4 digits of the card and Auth Code.' : 'Optional: Extract card details if present.'}
+      5. **Oman VAT Logic**: 
+         - If tax_invoice: Extract VAT amount and Tax ID if available.
+         - If bank_receipt: VAT is usually included in total; set vatAmount to 0 unless explicitly shown.
+      6. **Currency**: Default to OMR.
     `;
 
     const response = await ai.models.generateContent({
@@ -87,7 +89,7 @@ export const processInvoiceWithGemini = async (fileData: { data: string, mimeTyp
       contents: {
         parts: [
           { inlineData: { mimeType: fileData.mimeType, data: fileData.data } },
-          { text: "Analyze this image. Validate if it is a receipt first." }
+          { text: `Analyze this image as a ${scanMode.replace('_', ' ')}. Identify the ${isBankMode ? 'bank and company' : 'merchant and tax details'}.` }
         ]
       },
       config: {
@@ -98,6 +100,7 @@ export const processInvoiceWithGemini = async (fileData: { data: string, mimeTyp
           properties: {
             isInvoice: { type: Type.BOOLEAN },
             vendorName: { type: Type.STRING },
+            bankName: { type: Type.STRING },
             vendorPhone: { type: Type.STRING },
             vendorTaxId: { type: Type.STRING },
             date: { type: Type.STRING },

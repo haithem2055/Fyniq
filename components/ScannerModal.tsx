@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Camera, Loader2, AlertCircle, Receipt, CreditCard, Save, Edit3, Calendar, Building2, DollarSign, Tag, CheckCircle2, BrainCircuit, AlertTriangle } from 'lucide-react';
+import { X, Upload, Camera, Loader2, AlertCircle, Receipt, CreditCard, Save, Edit3, Calendar, Building2, DollarSign, Tag, CheckCircle2, BrainCircuit, AlertTriangle, Phone, Coins, ArrowRightLeft, Landmark, Banknote } from 'lucide-react';
 import { fileToGenerativePart, processInvoiceWithGemini } from '../services/geminiService';
-import { InvoiceData, ExpenseCategory, CURRENCIES, AccountType } from '../types';
+import { InvoiceData, ExpenseCategory, CURRENCIES, AccountType, BUSINESS_CATEGORIES, INDIVIDUAL_CATEGORIES } from '../types';
 
 interface ScannerModalProps {
   onClose: () => void;
@@ -11,14 +11,27 @@ interface ScannerModalProps {
   translations: any;
   accountType?: AccountType;
   invoices?: InvoiceData[];
+  customCategories?: string[];
+  hiddenCategories?: string[];
 }
 
-const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, defaultCurrency, translations: t, accountType, invoices = [] }) => {
+// Approximate static rates for offline calculation convenience
+const EXCHANGE_RATES: Record<string, number> = {
+    'OMR': 1,
+    'USD': 0.385,
+    'EUR': 0.420,
+    'AED': 0.105,
+    'SAR': 0.103,
+    'GBP': 0.490
+};
+
+const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, defaultCurrency, translations: t, accountType, invoices = [], customCategories = [], hiddenCategories = [] }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewData, setReviewData] = useState<Omit<InvoiceData, 'id'> | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isPotentialDuplicate, setIsPotentialDuplicate] = useState(false);
+  const [scanMode, setScanMode] = useState<'tax_invoice' | 'bank_receipt'>('tax_invoice');
   
   // Ref for Direct Camera Capture
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +71,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
         setCapturedImage(imageUrl);
 
         // Now passing the object { data, mimeType } directly
-        const data = await processInvoiceWithGemini(fileData, defaultCurrency);
+        const data = await processInvoiceWithGemini(fileData, defaultCurrency, scanMode);
         setReviewData(data);
     } catch (e: any) {
         console.error(e);
@@ -81,6 +94,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
 
         onInvoiceAdded({
             ...reviewData,
+            type: scanMode,
             imageUrl: capturedImage || undefined
         });
         onClose();
@@ -92,6 +106,45 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
         setReviewData({ ...reviewData, [field]: value });
     }
   };
+
+  // Smart Handler for Currency Change
+  const handleCurrencyChange = (newCurrency: string) => {
+      if (!reviewData) return;
+      
+      const rate = EXCHANGE_RATES[newCurrency] || 1;
+      const currentOriginal = reviewData.originalAmount || reviewData.totalAmount;
+      
+      // Calculate new Total in OMR
+      const newTotalOMR = parseFloat((currentOriginal * rate).toFixed(3));
+
+      setReviewData({
+          ...reviewData,
+          currency: newCurrency,
+          totalAmount: newTotalOMR,
+          originalAmount: currentOriginal
+      });
+  };
+
+  // Smart Handler for Original Amount Change
+  const handleOriginalAmountChange = (newAmount: number) => {
+      if (!reviewData) return;
+
+      const rate = EXCHANGE_RATES[reviewData.currency || 'OMR'] || 1;
+      const newTotalOMR = parseFloat((newAmount * rate).toFixed(3));
+
+      setReviewData({
+          ...reviewData,
+          originalAmount: newAmount,
+          totalAmount: newTotalOMR
+      });
+  };
+
+  // Determine categories to show based on account type
+  const standardCats = (accountType === 'INDIVIDUAL' ? INDIVIDUAL_CATEGORIES : BUSINESS_CATEGORIES)
+    .filter(cat => !hiddenCategories.includes(cat));
+  
+  // Combine standard and custom categories for selection
+  const allCategories = [...standardCats, ...customCategories];
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
@@ -158,82 +211,66 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
                         </div>
                     )}
 
-                    {/* Merchant Name */}
-                    <div className="md:col-span-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <Building2 size={12} /> اسم المورد / المحل
-                        </label>
-                        <input 
-                            type="text" 
-                            value={reviewData.vendorName}
-                            onChange={(e) => updateReviewField('vendorName', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-bold"
-                        />
-                    </div>
-
-                    {/* Date */}
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <Calendar size={12} /> التاريخ
-                        </label>
-                        <input 
-                            type="text" 
-                            value={reviewData.date}
-                            onChange={(e) => updateReviewField('date', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white"
-                        />
-                    </div>
-
-                    {/* Category */}
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <Tag size={12} /> التصنيف المحاسبي
-                        </label>
-                        <select 
-                            value={reviewData.category}
-                            onChange={(e) => updateReviewField('category', e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white"
-                        >
-                            {Object.values(ExpenseCategory).map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Total Amount */}
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <DollarSign size={12} /> المبلغ الإجمالي (ر.ع)
-                        </label>
-                        <input 
-                            type="number" 
-                            step="0.001"
-                            value={reviewData.totalAmount}
-                            onChange={(e) => updateReviewField('totalAmount', parseFloat(e.target.value))}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono font-bold"
-                        />
-                    </div>
-
-                    {/* VAT Amount */}
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <Receipt size={12} /> ضريبة القيمة المضافة
-                        </label>
-                        <input 
-                            type="number" 
-                            step="0.001"
-                            value={reviewData.vatAmount}
-                            onChange={(e) => updateReviewField('vatAmount', parseFloat(e.target.value))}
-                            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono"
-                        />
-                    </div>
-
-                    {/* Payment Method Details (If CARD) */}
-                    {reviewData.paymentMethod === 'CARD' && (
+                    {scanMode === 'bank_receipt' ? (
                         <>
+                            {/* Bank Name */}
+                            <div className="md:col-span-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Landmark size={12} /> اسم البنك
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={reviewData.bankName || ''}
+                                    onChange={(e) => updateReviewField('bankName', e.target.value)}
+                                    placeholder="مثلاً: بنك مسقط"
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white"
+                                />
+                            </div>
+
+                            {/* Company Name */}
+                            <div className="md:col-span-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Building2 size={12} /> اسم الشركة
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={reviewData.vendorName}
+                                    onChange={(e) => updateReviewField('vendorName', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-bold"
+                                />
+                            </div>
+
+                            {/* Date */}
                             <div>
                                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                                    <CreditCard size={12} /> آخر 4 أرقام من البطاقة
+                                    <Calendar size={12} /> التاريخ
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={reviewData.date}
+                                    onChange={(e) => updateReviewField('date', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white"
+                                />
+                            </div>
+
+                            {/* Total Amount (OMR) */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <DollarSign size={12} /> مبلغ الاجمالي
+                                </label>
+                                <input 
+                                    type="number" 
+                                    step="0.001"
+                                    value={reviewData.totalAmount}
+                                    onChange={(e) => updateReviewField('totalAmount', parseFloat(e.target.value))}
+                                    className="w-full px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono font-black text-emerald-800 dark:text-emerald-400"
+                                />
+                            </div>
+
+                            {/* Card Last 4 */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <CreditCard size={12} /> اخر اربع ارقام من حساب البطاقة البنكية
                                 </label>
                                 <input 
                                     type="text" 
@@ -243,17 +280,134 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
                                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono"
                                 />
                             </div>
+
+                            {/* Payment Method */}
                             <div>
                                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                                    <Edit3 size={12} /> رمز الموافقة (Auth Code)
+                                    <Banknote size={12} /> وسيلة الدفع
+                                </label>
+                                <select 
+                                    value={reviewData.paymentMethod}
+                                    onChange={(e) => updateReviewField('paymentMethod', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white appearance-none"
+                                >
+                                    <option value="CARD">بطاقة بنكية</option>
+                                    <option value="CASH">نقدي</option>
+                                </select>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Date */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Calendar size={12} /> التاريخ
                                 </label>
                                 <input 
                                     type="text" 
-                                    value={reviewData.authCode || ''}
-                                    onChange={(e) => updateReviewField('authCode', e.target.value)}
-                                    placeholder="037839"
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono"
+                                    value={reviewData.date}
+                                    onChange={(e) => updateReviewField('date', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white"
                                 />
+                            </div>
+
+                            {/* Merchant Name */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Building2 size={12} /> المورد
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={reviewData.vendorName}
+                                    onChange={(e) => updateReviewField('vendorName', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-bold"
+                                />
+                            </div>
+
+                            {/* Payment Method */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Banknote size={12} /> وسيلة الدفع
+                                </label>
+                                <select 
+                                    value={reviewData.paymentMethod}
+                                    onChange={(e) => updateReviewField('paymentMethod', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white appearance-none"
+                                >
+                                    <option value="CARD">بطاقة بنكية</option>
+                                    <option value="CASH">نقدي</option>
+                                </select>
+                            </div>
+
+                            {/* Category */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Tag size={12} /> التصنيف
+                                </label>
+                                <select 
+                                    value={reviewData.category}
+                                    onChange={(e) => updateReviewField('category', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white appearance-none"
+                                >
+                                    {allCategories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Currency & Original Amount Section */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <Coins size={12} /> المبلغ الأصلي
+                                </label>
+                                <div className="flex gap-2">
+                                     <select 
+                                        value={reviewData.currency || 'OMR'}
+                                        onChange={(e) => handleCurrencyChange(e.target.value)}
+                                        className="w-1/3 px-2 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white text-sm font-bold"
+                                    >
+                                        {CURRENCIES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.code}</option>
+                                        ))}
+                                    </select>
+                                    <input 
+                                        type="number" 
+                                        step="0.01"
+                                        value={reviewData.originalAmount || reviewData.totalAmount}
+                                        onChange={(e) => handleOriginalAmountChange(parseFloat(e.target.value))}
+                                        className="w-2/3 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono font-bold"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Total Amount (OMR) */}
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <DollarSign size={12} /> المعادل (ر.ع)
+                                </label>
+                                <input 
+                                    type="number" 
+                                    step="0.001"
+                                    value={reviewData.totalAmount}
+                                    onChange={(e) => updateReviewField('totalAmount', parseFloat(e.target.value))}
+                                    className="w-full px-4 py-3 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white font-mono font-black text-emerald-800 dark:text-emerald-400"
+                                />
+                            </div>
+
+                            {/* VAT Status */}
+                            <div className="md:col-span-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                                    <CheckCircle2 size={12} /> الحالة
+                                </label>
+                                <select 
+                                    value={reviewData.vatStatus || 'مطابق'}
+                                    onChange={(e) => updateReviewField('vatStatus', e.target.value)}
+                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 dark:text-white appearance-none"
+                                >
+                                    <option value="مطابق">مطابق</option>
+                                    <option value="غير مطابق">غير مطابق</option>
+                                    <option value="معفى">معفى</option>
+                                </select>
                             </div>
                         </>
                     )}
@@ -285,6 +439,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
                     {accountType !== 'INDIVIDUAL' && (
                         <button 
                             onClick={() => {
+                                setScanMode('tax_invoice');
                                 if (fileInputRef.current) fileInputRef.current.value = '';
                                 fileInputRef.current?.click();
                             }}
@@ -302,6 +457,7 @@ const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onInvoiceAdded, de
 
                     <button 
                         onClick={() => {
+                            setScanMode('bank_receipt');
                             if (fileInputRef.current) fileInputRef.current.value = '';
                             fileInputRef.current?.click();
                         }}

@@ -16,13 +16,11 @@ import ImageArchive from './components/ImageArchive';
 import { InvoiceData, ChartData, DashboardStats, ExpenseCategory, AppSettings, Language, CATEGORY_MAPPING, Theme, UserProfile, PlanType } from './types';
 import { generateVatReturnReport } from './services/exportService';
 import { 
-  Download, FileText, Printer, ArrowLeft, LayoutDashboard, AlertTriangle, 
-  PieChart, BarChart3, ScanLine, BrainCircuit, ShieldCheck, Zap, ChevronRight, FileDown, Camera, Sun, Moon, Landmark, CreditCard, ShoppingBag, Search
+  ArrowLeft, LayoutDashboard, AlertTriangle, BrainCircuit, FileDown, Camera, Sun, Moon, Landmark, CreditCard, ShoppingBag, Search, FileText, Languages
 } from 'lucide-react';
 
 type ViewState = 'home' | 'dashboard' | 'reports' | 'payments' | 'archive';
 
-// تحديث قاعدة البيانات الجديدة
 const DB_DETAILS = {
   server: "127.0.0.1:3306",
   database: "u794936001_Fyniq_DB_test"
@@ -35,6 +33,7 @@ const TRANSLATIONS = {
     aiBadge: "الذكاء الاصطناعي في خدمة المحاسبة",
     btnDashboard: "لوحة التحكم",
     btnScan: "بدء مسح الفواتير",
+    changeLang: "English Interface",
     step1Title: "1. صور الفاتورة",
     step1Desc: "التقط صورة للفاتورة الورقية بهاتفك، وسيقوم النظام بمعالجتها فوراً.",
     step2Title: "2. التحليل الذكي",
@@ -108,6 +107,17 @@ const TRANSLATIONS = {
       statusMismatch: "غير مطابق",
       statusExempt: "معفى"
     },
+    bankReceipts: {
+      title: "سجل الايصالات البنكية",
+      bankName: "اسم البنك",
+      companyName: "اسم الشركة",
+      date: "التاريخ",
+      totalAmount: "مبلغ الاجمالي",
+      cardLast4: "اخر اربع ارقام من حساب البطاقة البنكية",
+      paymentMethod: "وسيلة الدفع",
+      emptyTitle: "لم يتم إضافة أي إيصالات بعد.",
+      emptyDesc: "اضغط على \"إضافة فاتورة\" للبدء."
+    },
     scanner: {
       title: "إضافة فاتورة جديدة",
       subtitle: "الذكاء الاصطناعي سيقوم باستخراج البيانات وتصنيفها",
@@ -129,7 +139,7 @@ const TRANSLATIONS = {
       tabBudgets: "الموازنة الشهرية",
       defaultCurrency: "العملة الافتراضية",
       currencyDesc: "سيتم استخدام هذه العملة إذا لم يتمكن الذكاء الاصطناعي من اكتشاف العملة تلقائياً في الفاتورة.",
-      budgetDesc: "حدد الحد الأقصى للمصروفات لكل بند لتلقي التنبيهات",
+      budgetDesc: "حدد الحد الأقصى للمصروفات لكل بند لتلقي التنبيهات. يمكنك إضافة بنود خاصة.",
       saveBtn: "حفظ التغييرات",
       saveBudgetBtn: "حفظ الموازنة",
       budgetModalTitle: "إعداد الموازنة الشهرية",
@@ -157,17 +167,17 @@ const TRANSLATIONS = {
       typeBusinessDesc: "لإدارة الفواتير الضريبية، التقارير، وتتبع المصروفات التشغيلية.",
       typeIndividual: "فرد / شخصي",
       typeIndividualDesc: "لتتبع المصاريف الشخصية، الميزانية المنزلية، والمدفوعات.",
-      heroTitle: "إدارة مالية ذكية",
-      heroDesc: "استخدم قوة الذكاء الاصطناعي لأتمتة إدخال الفواتير وتتبع المصروفات.",
-      welcomeBack: "مرحباً بعودتك",
-      subtitle: "أدخل بيانات الدخول للمتابعة",
-      companyName: "اسم الشركة / المؤسسة",
-      companyPlaceholder: "مثال: مؤسسة الأفق الحديثة",
-      email: "البريد الإلكتروني",
-      password: "كلمة المرور",
-      signInBtn: "تسجيل الدخول",
-      footerText: "تواجه مشكلة في الدخول؟",
-      contactSupport: "تواصل مع الدعم الفني"
+      heroTitle: "Smart Financial Management",
+      heroDesc: "Leverage AI power to automate invoice entry, track expenses, and ensure tax compliance.",
+      welcomeBack: "Welcome Back",
+      subtitle: "Enter credentials to access dashboard",
+      companyName: "Company / Establishment Name",
+      companyPlaceholder: "Ex: Modern Horizon Est.",
+      email: "Email Address",
+      password: "Password",
+      signInBtn: "Login",
+      footerText: "Trouble signing in?",
+      contactSupport: "Contact Support"
     },
     plans: {
         title: "خطط تناسب جميع الاحتياجات",
@@ -184,20 +194,41 @@ const TRANSLATIONS = {
         mo: "شهر",
         yr: "سنة",
         free: {
-            name: "مجانية",
-            features: ["مسح ضوئي لـ 30 فاتورة شهرياً", "تقارير أساسية", "دعم عبر البريد الإلكتروني"]
+            name: "البداية",
+            features: [
+              "مسح ضوئي لـ 20 فاتورة شهرياً",
+              "أرشيف الصور: متاح لآخر 30 يوماً فقط",
+              "إضافة حتى 3 بنود موازنة مخصصة",
+              "مركز المدفوعات: غير متاح",
+              "مستشار كوين (AI): وصول محدود",
+              "التقارير الضريبية: ملخص مبدئي فقط"
+            ]
         },
         standard: {
-            name: "قياسية",
-            features: ["مسح ضوئي لـ 70 فاتورة شهرياً", "تكلفة 100 بيسة للفواتير الإضافية", "تقارير Word و PDF", "مستشار الذكاء الاصطناعي"]
+            name: "النمو",
+            features: [
+              "مسح ضوئي لـ 100 فاتورة شهرياً",
+              "أرشيف الصور: متاح بشكل دائم وآمن",
+              "بنود موازنة مخصصة غير محدودة",
+              "مركز المدفوعات: متاح (بطاقة واحدة)",
+              "مستشار كوين (AI): وصول كامل وغير محدود",
+              "التقارير الضريبية: تقارير تفصيلية جاهزة"
+            ]
         },
         enterprise: {
-            name: "شركات",
-            features: ["عدد فواتير غير محدود", "ربط مع أنظمة ERP", "مدير حساب خاص", "دعم فني 24/7"]
+            name: "السيادة",
+            features: [
+              "مسح ضوئي غير محدود للمستندات",
+              "أرشيف الصور: متاح دائماً مع نسخ احتياطي",
+              "إدارة كاملة ومخصصة للهيكل المالي",
+              "مركز المدفوعات: ربط متعدد للبطاقات",
+              "مستشار كوين (AI): نموذج مخصص ومدرب",
+              "التقارير الضريبية: دعم تقني وضريبي متكامل"
+            ]
         },
         limitReachedTitle: "وصلت للحد الأقصى",
         limitReachedDesc: "لقد استهلكت جميع الفواتير المتاحة في باقتك الحالية ({count}/{limit}).",
-        upgradeBtn: "ترقية الباقة الآن"
+        upgradeBtn: "Upgrade Now"
     },
     archive: {
         title: "أرشيف الصور",
@@ -212,6 +243,7 @@ const TRANSLATIONS = {
     aiBadge: "AI-Powered Accounting",
     btnDashboard: "Dashboard",
     btnScan: "Start Scanning",
+    changeLang: "الواجهة العربية",
     step1Title: "1. Snap Invoice",
     step1Desc: "Take a photo of your paper invoice, and the system processes it instantly.",
     step2Title: "2. Smart Analysis",
@@ -285,6 +317,17 @@ const TRANSLATIONS = {
       statusMismatch: "Mismatch",
       statusExempt: "Exempt"
     },
+    bankReceipts: {
+      title: "Bank Receipts Log",
+      bankName: "Bank Name",
+      companyName: "Company Name",
+      date: "Date",
+      totalAmount: "Total Amount",
+      cardLast4: "Card Last 4 Digits",
+      paymentMethod: "Payment Method",
+      emptyTitle: "No receipts added yet.",
+      emptyDesc: "Click 'Add Invoice' to start."
+    },
     scanner: {
       title: "Add New Invoice",
       subtitle: "AI will extract data and classify it",
@@ -306,7 +349,7 @@ const TRANSLATIONS = {
       tabBudgets: "Monthly Budget",
       defaultCurrency: "Default Currency",
       currencyDesc: "This currency will be used if AI cannot automatically detect the currency in the invoice.",
-      budgetDesc: "Set the maximum expense limit for each category to receive alerts.",
+      budgetDesc: "Set the maximum expense limit for each category to receive alerts. You can also add custom items.",
       saveBtn: "Save Changes",
       saveBudgetBtn: "Save Budget",
       budgetModalTitle: "Monthly Budget Setup",
@@ -356,21 +399,42 @@ const TRANSLATIONS = {
         popularBadge: "Most Popular",
         choosePlan: "Choose Plan",
         currentPlan: "Current Plan",
-        limitDesc: "Up to {limit} invoices/month",
+        limitDesc: "{limit} invoices/month",
         unlimitedInvoices: "Unlimited Invoices",
         mo: "mo",
         yr: "yr",
         free: {
-            name: "Free",
-            features: ["Scan 30 invoices/month", "Basic Reports", "Email Support"]
+            name: "Start",
+            features: [
+              "Scan 20 invoices/month",
+              "Image Archive: 30 days only",
+              "Up to 3 custom budget items",
+              "Payments Center: N/A",
+              "AI Advisor: Limited access",
+              "Tax Reports: Basic summary"
+            ]
         },
         standard: {
-            name: "Standard",
-            features: ["Scan 70 invoices/month", "100 Baisa for extra invoices", "Word & PDF Reports", "AI Advisor"]
+            name: "Growth",
+            features: [
+              "Scan 100 invoices/month",
+              "Image Archive: Permanent & Secure",
+              "Unlimited budget items",
+              "Payments Center: 1 Card connection",
+              "AI Advisor: Full & Unlimited",
+              "Tax Reports: Detailed & Ready"
+            ]
         },
         enterprise: {
-            name: "Enterprise",
-            features: ["Unlimited Invoices", "ERP Integration", "Dedicated Account Manager", "24/7 Support"]
+            name: "Sovereignty",
+            features: [
+              "Unlimited document scanning",
+              "Image Archive: Exportable backups",
+              "Full financial structure management",
+              "Payments Center: Multi-card connection",
+              "AI Advisor: Sector-trained model",
+              "Tax Reports: Expert support included"
+            ]
         },
         limitReachedTitle: "Limit Reached",
         limitReachedDesc: "You have used all available invoices in your plan ({count}/{limit}).",
@@ -385,7 +449,16 @@ const TRANSLATIONS = {
   }
 };
 
-const HomeView: React.FC<{ t: any, onScanClick: () => void, user: UserProfile }> = ({ t, onScanClick, user }) => (
+const stringToColor = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00ffffff).toString(16).toUpperCase();
+    return '#' + '00000'.substring(0, 6 - c.length) + c;
+};
+
+const HomeView: React.FC<{ t: any, onScanClick: () => void, user: UserProfile, onToggleLanguage: (l: Language) => void, currentLang: Language }> = ({ t, onScanClick, user, onToggleLanguage, currentLang }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center space-y-8 animate-fadeIn">
       <div className="max-w-2xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-4 py-1.5 rounded-full text-sm font-bold animate-pulse">
@@ -406,13 +479,22 @@ const HomeView: React.FC<{ t: any, onScanClick: () => void, user: UserProfile }>
                   <Camera size={20} />
                   {t.btnScan}
               </button>
+              
+              {/* Added language switcher to HomeView for visibility */}
+              <button 
+                  onClick={() => onToggleLanguage(currentLang === 'ar' ? 'en' : 'ar')}
+                  className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-6 py-4 rounded-2xl font-bold shadow-md border border-slate-100 dark:border-slate-700 transition-all hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                  <Languages size={20} className="text-emerald-500" />
+                  {t.changeLang}
+              </button>
           </div>
       </div>
 
       {/* Steps / Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 w-full max-w-5xl">
           {[
-              { icon: ScanLine, title: t.step1Title, desc: t.step1Desc, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
+              { icon: BrainCircuit, title: t.step1Title, desc: t.step1Desc, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
               { icon: BrainCircuit, title: t.step2Title, desc: t.step2Desc, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-900/20" },
               { icon: FileDown, title: t.step3Title, desc: t.step3Desc, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" }
           ].map((step, idx) => (
@@ -428,207 +510,12 @@ const HomeView: React.FC<{ t: any, onScanClick: () => void, user: UserProfile }>
   </div>
 );
 
-const DashboardView: React.FC<{ 
-    t: any, 
-    stats: DashboardStats, 
-    chartData: ChartData[], 
-    budgetComparisonData: any[], 
-    budgetAlerts: string[], 
-    spendingByCategory: Record<string, number>, 
-    settings: AppSettings, 
-    invoices: InvoiceData[], 
-    language: string, 
-    isDarkMode: boolean 
-}> = ({ t, stats, chartData, budgetComparisonData, budgetAlerts, spendingByCategory, settings, invoices, language, isDarkMode }) => (
-    <div className="space-y-6 animate-fadeIn">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{t.dashboardTitle}</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">{t.dashboardSubtitle}</p>
-            </div>
-            {budgetAlerts.length > 0 && (
-                <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 text-rose-600 dark:text-rose-400 px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 animate-pulse">
-                    <AlertTriangle size={16} />
-                    <span>{t.budgetAlertTitle} {budgetAlerts.length}</span>
-                </div>
-            )}
-        </div>
-
-        <StatsCards stats={stats} translations={t} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-                <ExpensesChart data={chartData} translations={t} isDarkMode={isDarkMode} />
-                <BudgetComparisonChart data={budgetComparisonData} translations={t} isDarkMode={isDarkMode} />
-            </div>
-            <div className="space-y-6">
-                <div className="h-96">
-                    <BudgetStatus 
-                        budgets={settings.budgets} 
-                        currentSpending={spendingByCategory} 
-                        translations={t}
-                        language={language}
-                    />
-                </div>
-            </div>
-        </div>
-
-        <RecentInvoices invoices={invoices} translations={t} language={language} />
-    </div>
-);
-
-const PaymentsView: React.FC<{ t: any, invoices: InvoiceData[], language: string }> = ({ t, invoices, language }) => {
-    const cardInvoices = invoices.filter(inv => inv.paymentMethod === 'CARD');
-    const totalCardSpend = cardInvoices.reduce((acc, curr) => acc + curr.totalAmount, 0);
-
-    return (
-        <div className="space-y-8 animate-fadeIn">
-            <div className="text-start space-y-2">
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                    <CreditCard size={32} className="text-blue-500" />
-                    {t.paymentsTitle}
-                </h2>
-                <p className="text-slate-500 dark:text-slate-400">{t.paymentsSubtitle}</p>
-            </div>
-
-            {/* Card Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[32px] text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-125 transition-transform"></div>
-                     <p className="text-blue-100 text-sm font-medium mb-1">إجمالي مشتريات البطاقة</p>
-                     <h3 className="text-4xl font-black mb-4 font-mono">{totalCardSpend.toFixed(3)} <span className="text-lg opacity-70">ر.ع</span></h3>
-                     <div className="flex items-center gap-2 bg-white/10 w-fit px-3 py-1 rounded-full text-xs">
-                        <ShoppingBag size={14} />
-                        {cardInvoices.length} عملية بنكية
-                     </div>
-                </div>
-            </div>
-
-            {/* Custom Table for Visa Receipts */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                <div className="p-6 border-b border-slate-50 dark:border-slate-700 flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 dark:text-white">سجل إيصالات نقاط البيع (POS)</h3>
-                    <div className="relative">
-                        <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input type="text" placeholder="بحث..." className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pr-10 pl-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className={`w-full text-sm ${language === 'ar' ? 'text-right' : 'text-left'}`}>
-                        <thead className="bg-slate-50/50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400">
-                            <tr>
-                                <th className="px-6 py-4 font-bold">التاريخ</th>
-                                <th className="px-6 py-4 font-bold">اسم التاجر</th>
-                                <th className="px-6 py-4 font-bold">تفاصيل البطاقة</th>
-                                <th className="px-6 py-4 font-bold">رمز الموافقة (Auth)</th>
-                                <th className="px-6 py-4 font-bold">المبلغ</th>
-                                <th className="px-6 py-4 font-bold">الحالة</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {cardInvoices.length === 0 ? (
-                                <tr><td colSpan={6} className="px-6 py-20 text-center text-slate-400">لا يوجد سجلات مدفوعات بنكية حالياً</td></tr>
-                            ) : (
-                                cardInvoices.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
-                                        <td className="px-6 py-4 text-slate-500">{inv.date}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-800 dark:text-white">{inv.vendorName}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center text-blue-600">
-                                                    <CreditCard size={14} />
-                                                </div>
-                                                <span className="font-mono text-xs">**** {inv.cardLast4 || 'Card'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-400">{inv.authCode || 'N/A'}</td>
-                                        <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400" dir="ltr">{inv.totalAmount.toFixed(3)}</td>
-                                        <td className="px-6 py-4">
-                                            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-md text-[10px] font-bold">APPROVED</span>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const ReportsView: React.FC<{ t: any, onExportWord: () => void, onPrintPDF: () => void }> = ({ t, onExportWord, onPrintPDF }) => (
-    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
-        <div className="text-center space-y-2">
-            <h2 className="text-3xl font-bold text-slate-800 dark:text-white">{t.reportsTitle}</h2>
-            <p className="text-slate-500 dark:text-slate-400">{t.reportsSubtitle}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <button 
-                onClick={onExportWord}
-                className="group relative bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 text-left hover:shadow-xl transition-all overflow-hidden"
-            >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                <div className="relative z-10">
-                    <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6">
-                        <FileText size={28} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{t.reportWord}</h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">{t.reportWordDesc}</p>
-                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1">
-                        {t.quickActions} <Download size={16} />
-                    </div>
-                </div>
-            </button>
-
-            <button 
-                onClick={onPrintPDF}
-                className="group relative bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 text-left hover:shadow-xl transition-all overflow-hidden"
-            >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 dark:bg-rose-900/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-                <div className="relative z-10">
-                    <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
-                        <Printer size={28} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{t.reportPdf}</h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">{t.reportPdfDesc}</p>
-                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-sm group-hover:translate-x-1 transition-transform rtl:group-hover:-translate-x-1">
-                        {t.quickActions} <ArrowLeft size={16} className="rtl:rotate-180" />
-                    </div>
-                </div>
-            </button>
-            
-             <div className="md:col-span-2 group relative bg-gradient-to-br from-emerald-500 to-teal-600 p-8 rounded-3xl shadow-lg text-white text-left overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div>
-                         <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-6">
-                            <Landmark size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-xl font-bold mb-2">{t.reportTax}</h3>
-                        <p className="text-emerald-100 text-sm max-w-md">{t.reportTaxDesc}</p>
-                    </div>
-                    <button 
-                         onClick={onExportWord} // Reusing Word export for tax return helper as per logic
-                         className="bg-white text-emerald-600 px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-emerald-50 transition-colors flex items-center gap-2"
-                    >
-                         <Download size={18} />
-                         <span>{t.quickActions}</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewState>('home');
   const [isScanning, setIsScanning] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
   
-  // User Authentication State
   const [user, setUser] = useState<UserProfile | null>(() => {
      try {
          const savedUser = localStorage.getItem('fyniq_user');
@@ -636,7 +523,6 @@ const App: React.FC = () => {
      } catch(e) { return null; }
   });
 
-  // Theme State
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('app_theme');
@@ -646,12 +532,10 @@ const App: React.FC = () => {
     return 'light';
   });
 
-  // Language State
   const [language, setLanguage] = useState<Language>(() => {
      return (localStorage.getItem('app_language') as Language) || 'ar';
   });
 
-  // Handle Theme Side Effects
   useEffect(() => {
     localStorage.setItem('app_theme', theme);
     if (theme === 'dark') {
@@ -661,7 +545,6 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  // Handle Language Side Effects
   useEffect(() => {
     localStorage.setItem('app_language', language);
     document.documentElement.lang = language;
@@ -671,28 +554,28 @@ const App: React.FC = () => {
   const t = TRANSLATIONS[language];
   const isDarkMode = theme === 'dark';
   
-  // Initialize invoices from localStorage
   const [invoices, setInvoices] = useState<InvoiceData[]>(() => {
     try {
       const saved = localStorage.getItem('omani_accountant_invoices');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      // Ensure every invoice has an ID for React keys
+      return parsed.map((inv: any) => ({
+        ...inv,
+        id: inv.id || crypto.randomUUID(),
+        type: inv.type || (inv.bankName || inv.cardLast4 ? 'bank_receipt' : 'tax_invoice')
+      }));
     } catch (e) {
-      console.error("Failed to load invoices", e);
       return [];
     }
   });
   
-  // Initialize Settings
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const saved = localStorage.getItem('omani_accountant_settings');
-      if (saved) {
-          return JSON.parse(saved);
-      }
-      const legacyBudgets = localStorage.getItem('omani_accountant_budgets');
+      if (saved) return JSON.parse(saved);
       return {
           defaultCurrency: 'OMR',
-          budgets: legacyBudgets ? JSON.parse(legacyBudgets) : {},
+          budgets: {},
           dbConfig: {
               server: DB_DETAILS.server,
               database: DB_DETAILS.database,
@@ -701,34 +584,22 @@ const App: React.FC = () => {
       };
     } catch (e) {
       return { 
-          defaultCurrency: 'OMR', 
-          budgets: {},
-          dbConfig: {
-              server: DB_DETAILS.server,
-              database: DB_DETAILS.database,
-              status: 'CONNECTED'
-          }
+          defaultCurrency: 'OMR', budgets: {},
+          dbConfig: { server: DB_DETAILS.server, database: DB_DETAILS.database, status: 'CONNECTED' }
       };
     }
   });
 
-  // Save invoices when changed
   useEffect(() => {
     localStorage.setItem('omani_accountant_invoices', JSON.stringify(invoices));
   }, [invoices]);
 
-  // Save settings when changed
   useEffect(() => {
     localStorage.setItem('omani_accountant_settings', JSON.stringify(settings));
-    localStorage.setItem('omani_accountant_budgets', JSON.stringify(settings.budgets));
   }, [settings]);
 
-  // Handle User Login
   const handleLogin = (profile: Omit<UserProfile, 'subscription' | 'id' | 'role' | 'status'>) => {
-      // Determine Role based on email for prototype
       const isAdmin = profile.email.toLowerCase().includes('admin@fyniq.om');
-      
-      // Initialize Default Subscription for new users
       const profileWithSub: UserProfile = {
           ...profile,
           id: crypto.randomUUID(),
@@ -737,60 +608,22 @@ const App: React.FC = () => {
           subscription: {
               plan: 'FREE',
               cycle: 'MONTHLY',
-              usageCount: invoices.length, // Sync with existing invoice count logic for now
-              limit: 30,
+              usageCount: invoices.length,
+              limit: 20, // Updated to 20 for Start Plan
               renewalDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString()
           }
       };
-      
       setUser(profileWithSub);
       localStorage.setItem('fyniq_user', JSON.stringify(profileWithSub));
-      
-      if (!isAdmin) {
-          setActiveView('dashboard');
-      }
+      if (!isAdmin) setActiveView('dashboard');
   };
 
-  // Handle Profile Update
-  const handleUpdateProfile = (updatedProfile: UserProfile) => {
-    setUser(updatedProfile);
-    localStorage.setItem('fyniq_user', JSON.stringify(updatedProfile));
-  };
-
-  // Handle Plan Upgrade
-  const handleUpgrade = (plan: PlanType, cycle: 'MONTHLY' | 'YEARLY') => {
-      if (!user) return;
-
-      const limits: Record<PlanType, number> = {
-          'FREE': 30,
-          'STANDARD': 70,
-          'ENTERPRISE': -1
-      };
-
-      const updatedUser: UserProfile = {
-          ...user,
-          subscription: {
-              ...user.subscription,
-              plan: plan,
-              cycle: cycle,
-              limit: limits[plan],
-              // In real app, reset usage on cycle change or keep it? Keeping for now.
-          }
-      };
-      setUser(updatedUser);
-      localStorage.setItem('fyniq_user', JSON.stringify(updatedUser));
-      setIsSubscriptionModalOpen(false);
-      alert(`Successfully upgraded to ${plan} Plan!`);
-  };
-
-  // Handle User Logout
   const handleLogout = () => {
       setUser(null);
       localStorage.removeItem('fyniq_user');
       setActiveView('home');
   };
 
-  // Derived State
   const stats: DashboardStats = useMemo(() => {
     return invoices.reduce((acc, curr) => ({
       totalSpend: acc.totalSpend + curr.totalAmount,
@@ -806,13 +639,9 @@ const App: React.FC = () => {
     }, {} as Record<string, number>);
   }, [invoices]);
 
-  // Helper to get translated category name
-  const getCategoryName = (cat: string) => {
-      return language === 'en' && CATEGORY_MAPPING[cat] ? CATEGORY_MAPPING[cat] : cat;
-  };
-
   const chartData: ChartData[] = useMemo(() => {
-    const colors: Record<string, string> = {
+    const standardColors: Record<string, string> = {
+      // Business
       [ExpenseCategory.COGS]: '#059669',
       [ExpenseCategory.OPERATING]: '#3b82f6',
       [ExpenseCategory.SALARY]: '#8b5cf6',
@@ -820,18 +649,45 @@ const App: React.FC = () => {
       [ExpenseCategory.ADMIN]: '#64748b',
       [ExpenseCategory.ASSETS]: '#0ea5e9',
       [ExpenseCategory.UTILITIES]: '#ec4899',
+
+      // Individual
+      [ExpenseCategory.HOUSING]: '#3b82f6', // Blue
+      [ExpenseCategory.GROCERIES]: '#10b981', // Emerald
+      [ExpenseCategory.TRANSPORT]: '#f59e0b', // Amber
+      [ExpenseCategory.HEALTH]: '#ef4444', // Red
+      [ExpenseCategory.DEBT]: '#6366f1', // Indigo
+      [ExpenseCategory.ENTERTAINMENT]: '#ec4899', // Pink
+      [ExpenseCategory.SHOPPING]: '#8b5cf6', // Violet
+      [ExpenseCategory.SAVINGS]: '#059669', // Dark Green
     };
 
-    return Object.entries(spendingByCategory).map(([name, value]) => ({
-      name: getCategoryName(name), // Translate name
-      value,
-      fill: colors[name] || '#cbd5e1'
-    }));
-  }, [spendingByCategory, language]);
+    // Include both spending keys AND budget keys to ensure category appears in chart even if 0 spend
+    const spendingKeys = Object.keys(spendingByCategory);
+    const budgetKeys = Object.keys(settings.budgets);
+    const uniqueKeys = Array.from(new Set([...spendingKeys, ...budgetKeys]));
+
+    // Fix: Filter uniqueKeys before mapping to avoid "Type 'void' cannot be used as an index type" error.
+    // The previous code mapped first and then filtered using an out-of-scope 'name' variable, which defaulted to global window.name (void type).
+    return uniqueKeys
+      .filter((key) => !(settings.hiddenCategories || []).includes(key))
+      .filter((key) => (spendingByCategory[key] || 0) > 0 || (settings.budgets[key] && (settings.budgets[key] || 0) > 0))
+      .map((key) => ({
+        name: language === 'en' && CATEGORY_MAPPING[key] ? CATEGORY_MAPPING[key] : key,
+        value: spendingByCategory[key] || 0,
+        fill: standardColors[key] || stringToColor(key)
+      }));
+  }, [spendingByCategory, settings.budgets, language]);
 
   const budgetComparisonData = useMemo(() => {
-    return Object.values(ExpenseCategory).map(cat => ({
-      name: getCategoryName(cat), // Translate name
+    // Combine standard categories and any custom categories in settings.budgets
+    const standardCats = Object.values(ExpenseCategory) as string[];
+    const customCats = Object.keys(settings.budgets).filter(k => !standardCats.includes(k));
+    const allCategories = [...standardCats, ...customCats];
+
+    return allCategories
+      .filter(cat => !(settings.hiddenCategories || []).includes(cat))
+      .map(cat => ({
+      name: language === 'en' && CATEGORY_MAPPING[cat] ? CATEGORY_MAPPING[cat] : cat,
       actual: spendingByCategory[cat] || 0,
       budget: settings.budgets[cat] || 0
     })).filter(item => item.actual > 0 || item.budget > 0);
@@ -841,117 +697,29 @@ const App: React.FC = () => {
     const alerts: string[] = [];
     Object.entries(settings.budgets).forEach(([cat, limit]) => {
         if (limit && spendingByCategory[cat] > limit) {
-            const catName = getCategoryName(cat);
-            const msg = language === 'ar' 
-                ? `تنبيه: لقد تجاوزت موازنة "${catName}" المحددة (${limit} ر.ع)`
-                : `Alert: You exceeded budget for "${catName}" (${limit} OMR)`;
-            alerts.push(msg);
+            alerts.push(cat);
         }
     });
     return alerts;
-  }, [settings.budgets, spendingByCategory, language]);
+  }, [settings.budgets, spendingByCategory]);
 
-  const handleScanClick = () => {
-    if (!user) return;
-    
-    // Check Limits
-    const limit = user.subscription.limit;
-    const current = user.subscription.usageCount;
-    
-    if (limit !== -1 && current >= limit) {
-        setIsSubscriptionModalOpen(true);
-        // Optional: show a specific alert inside modal or before opening
-        return;
-    }
-    
-    setIsScanning(true);
-  };
+  const customCategories = useMemo(() => {
+      const standard = Object.values(ExpenseCategory) as string[];
+      return Object.keys(settings.budgets).filter(k => !standard.includes(k));
+  }, [settings.budgets]);
 
-  const handleInvoiceAdded = (newInvoiceData: Omit<InvoiceData, 'id'>) => {
-    const newInvoice: InvoiceData = {
-      ...newInvoiceData,
-      id: crypto.randomUUID(),
-    };
-    setInvoices(prev => [newInvoice, ...prev]);
-    
-    // Increment Usage Logic
-    if (user) {
-        const updatedUser = {
-            ...user,
-            subscription: {
-                ...user.subscription,
-                usageCount: user.subscription.usageCount + 1
-            }
-        };
-        setUser(updatedUser);
-        localStorage.setItem('fyniq_user', JSON.stringify(updatedUser));
-    }
-
-    // Auto-navigate to payments if it's a card receipt
-    if (newInvoiceData.paymentMethod === 'CARD') {
-        setActiveView('payments');
-    } else {
-        setActiveView('dashboard');
-    }
-  };
-
-  const handleExportWord = () => {
-    generateVatReturnReport(invoices);
-  };
-
-  const handlePrintPDF = () => {
-    window.print();
-  };
-
-  // If user is not logged in, show Login Screen
   if (!user) {
-    return (
-      <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 ${language === 'ar' ? 'rtl' : 'ltr'} transition-colors duration-300`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-          {/* Header minimal for Login */}
-           <div className="fixed top-0 w-full p-4 flex justify-between items-center z-50">
-               <div className="bg-slate-800/50 p-1 rounded-lg border border-white/10 flex items-center backdrop-blur-md">
-                    <button 
-                        onClick={() => setLanguage('en')}
-                        className={`px-2 py-1 rounded-md text-xs font-bold transition-all ${language === 'en' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        EN
-                    </button>
-                    <button 
-                        onClick={() => setLanguage('ar')}
-                        className={`px-2 py-1 rounded-md text-xs font-bold transition-all ${language === 'ar' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-                    >
-                        عربي
-                    </button>
-               </div>
-               <button
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className="p-2 bg-slate-800/50 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/10 backdrop-blur-md"
-                >
-                    {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
-           </div>
-          <LoginScreen onLogin={handleLogin} translations={t} language={language} />
-      </div>
-    );
+    return <LoginScreen onLogin={handleLogin} translations={t} language={language} onToggleLanguage={setLanguage} />;
   }
 
-  // --- ADMIN VIEW ---
   if (user.role === 'ADMIN') {
-      return (
-          <AdminDashboard 
-            adminUser={user} 
-            onLogout={handleLogout} 
-            language={language}
-            isDarkMode={isDarkMode}
-          />
-      );
+      return <AdminDashboard adminUser={user} onLogout={handleLogout} language={language} isDarkMode={isDarkMode} />;
   }
 
-  // --- STANDARD USER VIEW ---
   return (
-    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 ${language === 'ar' ? 'rtl' : 'ltr'} transition-colors duration-300`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300 ${language === 'ar' ? 'rtl' : 'ltr'}`} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <Header 
-        onScanClick={handleScanClick}
+        onScanClick={() => setIsScanning(true)}
         activeView={activeView}
         onNavigate={setActiveView}
         onOpenBudgetSettings={() => setIsSettingsModalOpen(true)}
@@ -959,86 +727,108 @@ const App: React.FC = () => {
         onToggleLanguage={setLanguage}
         translations={t}
         theme={theme}
-        onToggleTheme={(newTheme) => setTheme(newTheme)}
+        onToggleTheme={setTheme}
         user={user}
         onLogout={handleLogout}
         onOpenSubscription={() => setIsSubscriptionModalOpen(true)}
         dbConfig={settings.dbConfig}
       />
-
-      {/* Added pb-24 for mobile bottom nav spacing */}
       <main className="container mx-auto px-4 py-8 pb-24 md:pb-8">
-        {activeView === 'home' && <HomeView t={t} onScanClick={handleScanClick} user={user} />}
+        {activeView === 'home' && <HomeView t={t} onScanClick={() => setIsScanning(true)} user={user} onToggleLanguage={setLanguage} currentLang={language} />}
         {activeView === 'dashboard' && (
-            <DashboardView 
-                t={t}
-                stats={stats}
-                chartData={chartData}
-                budgetComparisonData={budgetComparisonData}
-                budgetAlerts={budgetAlerts}
-                spendingByCategory={spendingByCategory}
-                settings={settings}
-                invoices={invoices}
-                language={language}
-                isDarkMode={isDarkMode}
-            />
+            <div className="space-y-6 animate-fadeIn">
+                <StatsCards stats={stats} translations={t} />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 space-y-6">
+                        <ExpensesChart data={chartData} translations={t} isDarkMode={isDarkMode} />
+                        <BudgetComparisonChart data={budgetComparisonData} translations={t} isDarkMode={isDarkMode} />
+                    </div>
+                    <div className="h-96">
+                        <BudgetStatus budgets={settings.budgets} currentSpending={spendingByCategory} translations={t} language={language} hiddenCategories={settings.hiddenCategories} />
+                    </div>
+                </div>
+                <RecentInvoices invoices={invoices.filter(inv => inv.type === 'tax_invoice')} translations={t} language={language} mode="invoices" />
+            </div>
         )}
-        {activeView === 'archive' && (
-            <ImageArchive 
-                invoices={invoices}
-                translations={t}
-                language={language}
-            />
+        {activeView === 'reports' && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <FileText className="text-blue-500" size={24} />
+                  {t.reportsTitle}
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t.reportsSubtitle}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group">
+                  <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FileText size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t.reportWord}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t.reportWordDesc}</p>
+                  <button 
+                      onClick={() => generateVatReturnReport(invoices)} 
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                      <FileDown size={18} />
+                      <span>{t.exportDesc}</span>
+                  </button>
+               </div>
+
+               <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group">
+                  <div className="w-14 h-14 bg-rose-100 dark:bg-rose-900/30 text-rose-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <FileText size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t.reportPdf}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t.reportPdfDesc}</p>
+                  <button 
+                      onClick={() => window.print()} 
+                      className="w-full py-3 bg-slate-800 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                      <FileDown size={18} />
+                      <span>طباعة / PDF</span>
+                  </button>
+               </div>
+
+               <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg transition-all group">
+                  <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                      <Landmark size={28} />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{t.reportTax}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{t.reportTaxDesc}</p>
+                  <button 
+                      onClick={() => generateVatReturnReport(invoices)} 
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                      <FileDown size={18} />
+                      <span>{t.exportDesc}</span>
+                  </button>
+               </div>
+            </div>
+
+            <div id="printable-report">
+                <div className="hidden print:block text-center mb-8">
+                    <h1 className="text-3xl font-bold mb-2">{t.header.appName}</h1>
+                    <p className="text-sm">{new Date().toLocaleDateString()}</p>
+                </div>
+                <RecentInvoices invoices={invoices} translations={t} language={language} mode="full_log" />
+            </div>
+          </div>
         )}
-        {activeView === 'reports' && user.accountType !== 'INDIVIDUAL' && (
-            <ReportsView 
-                t={t}
-                onExportWord={handleExportWord}
-                onPrintPDF={handlePrintPDF}
-            />
-        )}
+        {activeView === 'archive' && <ImageArchive invoices={invoices} translations={t} language={language} />}
         {activeView === 'payments' && (
-            <PaymentsView 
-                t={t}
-                invoices={invoices}
-                language={language}
-            />
+          <div className="space-y-6 animate-fadeIn">
+            <h2 className="text-2xl font-bold flex items-center gap-2"><CreditCard /> {t.paymentsTitle}</h2>
+            <RecentInvoices invoices={invoices.filter(i => i.type === 'bank_receipt')} translations={t} language={language} mode="bank_receipts" />
+          </div>
         )}
       </main>
-
-      {isScanning && (
-        <ScannerModal 
-          onClose={() => setIsScanning(false)}
-          onInvoiceAdded={handleInvoiceAdded}
-          defaultCurrency={settings.defaultCurrency}
-          translations={t}
-          accountType={user?.accountType}
-          invoices={invoices} // Passed to check for duplicates
-        />
-      )}
-
-      {isSettingsModalOpen && (
-        <SettingsModal 
-          currentSettings={settings}
-          userProfile={user}
-          onSave={(newSettings) => setSettings(newSettings)}
-          onUpdateProfile={handleUpdateProfile}
-          onClose={() => setIsSettingsModalOpen(false)}
-          translations={t}
-          language={language}
-        />
-      )}
-
-      {isSubscriptionModalOpen && user && (
-          <SubscriptionModal 
-            currentSubscription={user.subscription}
-            onUpgrade={handleUpgrade}
-            onClose={() => setIsSubscriptionModalOpen(false)}
-            translations={t}
-            language={language}
-          />
-      )}
-
+      {isScanning && <ScannerModal onClose={() => setIsScanning(false)} onInvoiceAdded={(inv) => setInvoices([{ ...inv, id: crypto.randomUUID() } as any, ...invoices])} defaultCurrency={settings.defaultCurrency} translations={t} accountType={user.accountType} invoices={invoices} customCategories={customCategories} hiddenCategories={settings.hiddenCategories} />}
+      {isSettingsModalOpen && <SettingsModal currentSettings={settings} userProfile={user} onSave={setSettings} onUpdateProfile={setUser} onClose={() => setIsSettingsModalOpen(false)} translations={t} language={language} />}
+      {isSubscriptionModalOpen && <SubscriptionModal currentSubscription={user.subscription} onUpgrade={(p, c) => setUser({...user, subscription: {...user.subscription, plan: p, cycle: c}})} onClose={() => setIsSubscriptionModalOpen(false)} translations={t} language={language} />}
       <ChatBot invoices={invoices} translations={t} />
     </div>
   );

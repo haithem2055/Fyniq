@@ -1,5 +1,6 @@
 
 export enum ExpenseCategory {
+  // Business Categories
   COGS = 'تكلفة البضاعة المباعة',
   OPERATING = 'مصاريف تشغيلية',
   SALARY = 'رواتب وأجور',
@@ -7,11 +8,44 @@ export enum ExpenseCategory {
   ADMIN = 'مصاريف إدارية',
   ASSETS = 'أصول ثابتة',
   UTILITIES = 'خدمات ومرافق',
+  
+  // Individual Categories (New)
+  HOUSING = 'السكن والمرافق',
+  GROCERIES = 'الغذاء والمؤن',
+  TRANSPORT = 'النقل والسيارة',
+  HEALTH = 'الصحة والعافية',
+  DEBT = 'الالتزامات والديون',
+  ENTERTAINMENT = 'المطاعم والترفيه',
+  SHOPPING = 'التسوق',
+  SAVINGS = 'الادخار',
+
   UNCATEGORIZED = 'غير مصنف'
 }
 
+export const BUSINESS_CATEGORIES = [
+  ExpenseCategory.COGS,
+  ExpenseCategory.OPERATING,
+  ExpenseCategory.SALARY,
+  ExpenseCategory.MARKETING,
+  ExpenseCategory.ADMIN,
+  ExpenseCategory.ASSETS,
+  ExpenseCategory.UTILITIES
+];
+
+export const INDIVIDUAL_CATEGORIES = [
+  ExpenseCategory.HOUSING,
+  ExpenseCategory.GROCERIES,
+  ExpenseCategory.TRANSPORT,
+  ExpenseCategory.HEALTH,
+  ExpenseCategory.DEBT,
+  ExpenseCategory.ENTERTAINMENT,
+  ExpenseCategory.SHOPPING,
+  ExpenseCategory.SAVINGS
+];
+
 export interface InvoiceData {
   id: string;
+  type: 'tax_invoice' | 'bank_receipt';
   vendorName: string;
   vendorPhone?: string;
   vendorTaxId?: string;
@@ -36,6 +70,7 @@ export interface InvoiceData {
   
   // New Field for Image Archive
   imageUrl?: string;
+  bankName?: string;
 }
 
 export interface ChartData {
@@ -50,11 +85,13 @@ export interface DashboardStats {
   invoiceCount: number;
 }
 
-export type BudgetLimits = Partial<Record<ExpenseCategory, number>>;
+// Changed to allow any string key for custom budget items
+export type BudgetLimits = Record<string, number>;
 
 export interface AppSettings {
   defaultCurrency: string;
   budgets: BudgetLimits;
+  hiddenCategories?: string[];
   dbConfig?: {
     server: string;
     database: string;
@@ -109,5 +146,15 @@ export const CATEGORY_MAPPING: Record<string, string> = {
   [ExpenseCategory.ADMIN]: 'Administrative',
   [ExpenseCategory.ASSETS]: 'Fixed Assets',
   [ExpenseCategory.UTILITIES]: 'Utilities',
+  
+  [ExpenseCategory.HOUSING]: 'Housing & Utilities',
+  [ExpenseCategory.GROCERIES]: 'Food & Groceries',
+  [ExpenseCategory.TRANSPORT]: 'Transport & Car',
+  [ExpenseCategory.HEALTH]: 'Health & Wellness',
+  [ExpenseCategory.DEBT]: 'Obligations & Debt',
+  [ExpenseCategory.ENTERTAINMENT]: 'Restaurants & Entertainment',
+  [ExpenseCategory.SHOPPING]: 'Shopping',
+  [ExpenseCategory.SAVINGS]: 'Savings',
+
   [ExpenseCategory.UNCATEGORIZED]: 'Uncategorized'
 };
